@@ -1,0 +1,1566 @@
+<meta charset="UTF-8">
+<title>คำดักเพื่อน</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Kanit:wght@700;900&family=Sarabun:wght@400;500;600&display=swap">
+
+<!-- Firebase 9.22.2 compat SDK -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.22.2/firebase-app-compat.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.22.2/firebase-auth-compat.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/firebase/9.22.2/firebase-database-compat.min.js"></script>
+
+<style>
+/* ── Tokens ───────────────────────────────────────── */
+:root {
+  --bg:     #090b12;
+  --surf:   #111420;
+  --surf2:  #191d2c;
+  --border: rgba(255,255,255,.07);
+  --text:   #eceef8;
+  --muted:  #7279a0;
+  --red:    #ff3f5b;
+  --purple: #8b77ff;
+  --gold:   #ffc744;
+  --green:  #29e07a;
+  color-scheme: dark;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; background: var(--bg); color: var(--text); font-family: 'Sarabun', sans-serif; overflow: hidden; }
+
+/* ── App & Screen system ──────────────────────────── */
+#app { position: fixed; inset: 0; }
+.screen {
+  position: absolute; inset: 0; display: none;
+  flex-direction: column; overflow-y: auto;
+  padding-left:  max(20px, env(safe-area-inset-left,  0px));
+  padding-right: max(20px, env(safe-area-inset-right, 0px));
+  padding-top:   max(28px, env(safe-area-inset-top,   0px));
+  padding-bottom:max(28px, env(safe-area-inset-bottom,0px));
+  background: var(--bg);
+}
+.screen.active { display: flex; }
+
+/* ── Typography ───────────────────────────────────── */
+.game-logo {
+  font-family: 'Kanit', sans-serif; font-weight: 900;
+  font-size: 2.4rem; line-height: 1.1;
+  background: linear-gradient(135deg, var(--red) 0%, var(--purple) 100%);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+}
+.screen-title { font-family: 'Kanit', sans-serif; font-weight: 700; font-size: 1.5rem; margin-bottom: 4px; }
+.screen-desc  { color: var(--muted); font-size: .88rem; margin-bottom: 22px; }
+
+/* ── Buttons ──────────────────────────────────────── */
+.btn {
+  width: 100%; padding: 15px; border-radius: 14px; border: none;
+  cursor: pointer; font-family: 'Kanit', sans-serif; font-weight: 700; font-size: 1rem;
+  transition: transform .12s, opacity .12s;
+}
+.btn:active  { transform: scale(.97); opacity: .9; }
+.btn:disabled { opacity: .45; pointer-events: none; }
+.btn-red    { background: linear-gradient(135deg,var(--red),#c42040); color:#fff; box-shadow:0 6px 24px rgba(255,63,91,.3); }
+.btn-purple { background: linear-gradient(135deg,var(--purple),#6655cc); color:#fff; box-shadow:0 6px 24px rgba(139,119,255,.25); }
+.btn-green  { background: linear-gradient(135deg,var(--green),#18b55f); color:#0a1a12; box-shadow:0 6px 24px rgba(41,224,122,.25); }
+.btn-ghost  { background: var(--surf2); color: var(--text); border: 1px solid var(--border); }
+.btn-stack  { display: flex; flex-direction: column; gap: 10px; margin-top: auto; }
+
+/* ── Input ────────────────────────────────────────── */
+.field { margin-bottom: 14px; }
+.field label { display: block; font-size: .78rem; color: var(--muted); margin-bottom: 6px; letter-spacing: .05em; text-transform: uppercase; }
+.field input {
+  width: 100%; padding: 13px 16px;
+  background: var(--surf2); border: 1px solid var(--border);
+  border-radius: 12px; color: var(--text);
+  font-family: 'Sarabun', sans-serif; font-size: 1rem; outline: none;
+  transition: border-color .18s;
+}
+.field input:focus { border-color: var(--purple); }
+.field input::placeholder { color: var(--muted); }
+.code-field input { font-family: 'Kanit', sans-serif; font-weight: 700; font-size: 1.5rem; letter-spacing: .2em; text-align: center; text-transform: uppercase; }
+
+/* ── Back button ──────────────────────────────────── */
+.back-btn {
+  background: none; border: none; color: var(--muted);
+  font-family: 'Sarabun', sans-serif; font-size: .9rem;
+  cursor: pointer; padding: 0; margin-bottom: 22px;
+  display: flex; align-items: center; gap: 5px; align-self: flex-start;
+}
+
+/* ── Avatar grid ──────────────────────────────────── */
+.av-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-bottom: 20px; }
+.av-item {
+  aspect-ratio: 1; border-radius: 14px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.5rem; cursor: pointer;
+  border: 2px solid transparent; transition: transform .15s, border-color .15s;
+  position: relative;
+}
+.av-item:active { transform: scale(.9); }
+.av-item.sel { border-color: var(--purple); }
+.av-item.sel::after {
+  content: '✓'; position: absolute; bottom: -4px; right: -4px;
+  width: 18px; height: 18px; border-radius: 50%;
+  background: var(--purple); color: #fff;
+  font-size: .62rem; display: flex; align-items: center; justify-content: center;
+  font-family: system-ui;
+}
+
+/* ── Lobby ────────────────────────────────────────── */
+.lobby-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 20px;
+}
+.room-code { font-family: 'Kanit', sans-serif; font-weight: 900; font-size: 2rem; color: var(--gold); letter-spacing: .18em; }
+.copy-btn {
+  background: rgba(255,199,68,.1); border: 1px solid rgba(255,199,68,.2);
+  color: var(--gold); border-radius: 8px; padding: 7px 13px;
+  font-size: .8rem; font-family: 'Sarabun', sans-serif; cursor: pointer;
+}
+.section-label { font-size: .73rem; color: var(--muted); text-transform: uppercase; letter-spacing: .07em; margin-bottom: 10px; }
+.player-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px; }
+.player-card {
+  background: var(--surf); border: 1px solid var(--border);
+  border-radius: 14px; padding: 12px 14px;
+  display: flex; align-items: center; gap: 12px;
+  transition: opacity .2s;
+}
+.player-card.offline { opacity: .45; }
+.player-av { width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.4rem; flex-shrink: 0; }
+.player-name { font-weight: 600; font-size: .95rem; }
+.player-sub { font-size: .78rem; color: var(--muted); }
+.player-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.me-tag { font-size: .7rem; color: var(--purple); font-family: 'Sarabun', sans-serif; }
+.pbadge { margin-left: auto; font-size: .72rem; padding: 3px 10px; border-radius: 20px; font-weight: 600; white-space: nowrap; }
+.pbadge.host  { background: rgba(255,199,68,.15); color: var(--gold); }
+.pbadge.ready { background: rgba(41,224,122,.12); color: var(--green); }
+
+/* Score selector */
+.score-row { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; }
+.score-row label { font-size: .82rem; color: var(--muted); }
+.score-opts { display: flex; gap: 6px; }
+.score-opt {
+  padding: 5px 13px; border-radius: 20px; font-size: .82rem;
+  font-family: 'Kanit', sans-serif; font-weight: 700; cursor: pointer;
+  border: 1.5px solid var(--border); background: var(--surf2); color: var(--muted);
+  transition: all .15s;
+}
+.score-opt.sel { background: var(--purple); color: #fff; border-color: var(--purple); }
+
+/* ── Penalty row (lobby) ──────────────────────────── */
+.penalty-row { margin-bottom: 20px; }
+.penalty-row label { font-size: .78rem; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+.penalty-row input {
+  width: 100%; margin-top: 7px; padding: 11px 14px;
+  background: var(--surf2); border: 1px solid var(--border);
+  border-radius: 12px; color: var(--text);
+  font-family: 'Sarabun', sans-serif; font-size: .95rem; outline: none;
+  transition: border-color .18s;
+}
+.penalty-row input:focus { border-color: var(--red); }
+.penalty-row input::placeholder { color: var(--muted); }
+/* End game penalty box */
+.end-penalty-box {
+  background: rgba(255,63,91,.07); border: 1px solid rgba(255,63,91,.22);
+  border-radius: 14px; padding: 16px 18px; text-align: center; margin-bottom: 20px;
+}
+.end-penalty-label { font-size: .73rem; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 6px; }
+.end-penalty-text  { font-family: 'Kanit', sans-serif; font-weight: 700; font-size: 1.3rem; color: var(--red); }
+
+/* ── Loading spinner ──────────────────────────────── */
+.spinner {
+  width: 36px; height: 36px; border-radius: 50%;
+  border: 3px solid var(--border); border-top-color: var(--purple);
+  animation: spin .8s linear infinite; margin: 24px auto 0;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Toast ────────────────────────────────────────── */
+#toast {
+  position: fixed; bottom: max(28px, env(safe-area-inset-bottom,0px)); left: 50%; transform: translateX(-50%) translateY(20px);
+  background: var(--surf); border: 1px solid var(--border);
+  color: var(--text); padding: 10px 20px; border-radius: 20px;
+  font-size: .88rem; opacity: 0; transition: opacity .2s, transform .2s;
+  pointer-events: none; white-space: nowrap; z-index: 999;
+}
+#toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* ── Privacy screen ───────────────────────────────── */
+.privacy-wrap { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; }
+.privacy-blur { filter: blur(20px); pointer-events: none; user-select: none; opacity: .3; }
+.privacy-count {
+  font-family: 'Kanit', sans-serif; font-weight: 900; font-size: 5rem; color: var(--purple);
+  line-height: 1; text-shadow: 0 0 40px rgba(139,119,255,.5);
+}
+.privacy-hint { font-size: .88rem; color: var(--muted); text-align: center; }
+
+/* ── Home hero ────────────────────────────────────── */
+.hero-emoji { font-size: 5rem; text-align: center; display: block; margin: 20px 0 16px; }
+.home-tagline { color: var(--muted); font-size: .9rem; text-align: center; margin-bottom: 36px; }
+
+/* ── Placeholder screens ──────────────────────────── */
+.placeholder-wrap { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; }
+.placeholder-icon { font-size: 3rem; }
+.placeholder-title { font-family: 'Kanit', sans-serif; font-weight: 700; font-size: 1.1rem; color: var(--text); }
+.placeholder-sub { font-size: .84rem; color: var(--muted); }
+
+/* ── Trap Setup ───────────────────────────────────── */
+.trap-target-card {
+  background: var(--surf); border: 2px solid var(--border);
+  border-radius: 14px; padding: 12px 14px;
+  display: flex; align-items: center; gap: 12px;
+  cursor: pointer; transition: border-color .15s, background .15s;
+  user-select: none;
+}
+.trap-target-card.sel { border-color: var(--red); background: rgba(255,63,91,.07); }
+.trap-check {
+  width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0;
+  border: 2px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  font-size: .75rem; margin-left: auto; transition: all .15s;
+}
+.trap-target-card.sel .trap-check { background: var(--red); border-color: var(--red); color: #fff; }
+.trap-for-box {
+  background: var(--surf2); border: 1px solid var(--border);
+  border-radius: 14px; padding: 14px 16px; margin-bottom: 10px;
+  display: flex; align-items: center; gap: 14px;
+}
+.trap-for-label { font-size: .75rem; color: var(--muted); margin-bottom: 2px; }
+.trap-for-name  { font-weight: 700; font-size: 1.05rem; }
+.trap-progress {
+  display: flex; align-items: center; justify-content: center;
+  gap: 5px; margin-bottom: 20px; min-height: 20px;
+}
+.trap-progress-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--border); transition: background .2s;
+}
+.trap-progress-dot.done { background: var(--muted); }
+.trap-progress-dot.cur  { background: var(--purple); }
+/* Wait screen */
+.wait-player-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 11px 14px; background: var(--surf);
+  border: 1px solid var(--border); border-radius: 14px; margin-bottom: 7px;
+}
+.wait-status { margin-left: auto; font-size: 1.1rem; }
+.wait-counter {
+  text-align: center; font-family: 'Kanit', sans-serif;
+  font-weight: 700; font-size: 1.3rem; color: var(--purple); margin-bottom: 16px;
+}
+
+/* ── Active Game ──────────────────────────────────── */
+.game-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.role-card   { border-radius: 14px; padding: 14px 16px; margin-bottom: 14px; border: 1px solid var(--border); }
+.role-card-hunter { background: rgba(255,63,91,.07); border-color: rgba(255,63,91,.22); }
+.role-card-idle   { background: var(--surf); }
+.role-card-label  { font-size: .73rem; text-transform: uppercase; letter-spacing: .07em; margin-bottom: 8px; }
+.role-card-label.red   { color: var(--red); }
+.role-card-label.muted { color: var(--muted); }
+.trap-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 10px; background: rgba(0,0,0,.2); border-radius: 10px; margin-bottom: 6px;
+}
+.secret-word-badge {
+  display: inline-block; font-weight: 700; color: var(--red);
+  background: rgba(255,63,91,.1); border: 1px solid rgba(255,63,91,.2);
+  border-radius: 8px; padding: 3px 10px; font-size: .9rem; margin-top: 3px;
+}
+.score-player-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px; background: var(--surf);
+  border: 1px solid var(--border); border-radius: 12px; margin-bottom: 6px;
+}
+.score-num {
+  margin-left: auto; font-family: 'Kanit', sans-serif; font-weight: 900;
+  font-size: 1.3rem; color: var(--gold); font-variant-numeric: tabular-nums; min-width: 32px; text-align: right;
+}
+.bust-watch-box {
+  background: rgba(255,63,91,.07); border: 1px solid rgba(255,63,91,.2);
+  border-radius: 14px; padding: 14px; margin-bottom: 14px; text-align: center;
+}
+.bust-watch-title { font-family: 'Kanit', sans-serif; font-weight: 700; font-size: 1.05rem; color: var(--red); margin-bottom: 4px; }
+/* Bust confirm (target) */
+.bust-accuse-card {
+  background: var(--surf); border: 1px solid var(--border);
+  border-radius: 16px; padding: 20px; margin-bottom: 20px; text-align: center;
+}
+.bust-word-display {
+  font-family: 'Kanit', sans-serif; font-weight: 900; font-size: 2.2rem;
+  color: var(--red); margin: 10px 0;
+  text-shadow: 0 0 24px rgba(255,63,91,.35);
+}
+/* Vote */
+.vote-countdown-num {
+  font-family: 'Kanit', sans-serif; font-weight: 900; font-size: 4rem;
+  color: var(--purple); line-height: 1; text-align: center;
+  text-shadow: 0 0 32px rgba(139,119,255,.4);
+}
+.vote-btn-wrap { display: flex; gap: 10px; }
+.vote-btn-wrap .btn { flex: 1; padding: 15px 10px; }
+.vote-cast-info {
+  text-align: center; color: var(--muted); font-size: .88rem;
+  padding: 14px; border: 1px solid var(--border);
+  border-radius: 12px; background: var(--surf); line-height: 1.6;
+}
+/* Vote result */
+.result-verdict {
+  font-family: 'Kanit', sans-serif; font-weight: 900; font-size: 2.4rem; text-align: center;
+}
+.result-verdict.guilty   { color: var(--red); }
+.result-verdict.innocent { color: var(--green); }
+.score-change { text-align: center; font-size: 1rem; color: var(--muted); }
+
+/* ── End Game / Achievements ──────────────────────── */
+.end-winner-banner {
+  text-align: center; padding: 20px 0 16px;
+}
+.end-winner-name {
+  font-family: 'Kanit', sans-serif; font-weight: 900; font-size: 1.6rem;
+  color: var(--gold); text-shadow: 0 0 24px rgba(255,199,68,.35);
+}
+.end-rank-row {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 12px 14px; background: var(--surf);
+  border: 1px solid var(--border); border-radius: 14px; margin-bottom: 8px;
+}
+.end-rank-row.winner-row {
+  border-color: rgba(255,199,68,.4); background: rgba(255,199,68,.06);
+}
+.rank-medal { font-size: 1.2rem; min-width: 28px; padding-top: 2px; }
+.end-player-info { flex: 1; min-width: 0; }
+.end-player-name { font-weight: 700; font-size: .9rem; margin-bottom: 4px; }
+.achievement-wrap { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 2px; }
+.ach-pill {
+  display: inline-flex; align-items: center; gap: 3px;
+  border-radius: 20px; padding: 2px 9px; font-size: .72rem; font-weight: 600;
+  white-space: nowrap;
+}
+.ach-pill.gold   { background: rgba(255,199,68,.14); border: 1px solid rgba(255,199,68,.3); color: var(--gold); }
+.ach-pill.red    { background: rgba(255,63,91,.1);  border: 1px solid rgba(255,63,91,.25);  color: var(--red); }
+.ach-pill.purple { background: rgba(139,119,255,.1);border: 1px solid rgba(139,119,255,.25);color: var(--purple); }
+.ach-pill.green  { background: rgba(41,224,122,.1); border: 1px solid rgba(41,224,122,.25); color: var(--green); }
+.ach-pill.muted  { background: var(--surf2); border: 1px solid var(--border); color: var(--muted); }
+.end-score-num {
+  font-family: 'Kanit', sans-serif; font-weight: 900; font-size: 1.3rem;
+  font-variant-numeric: tabular-nums; min-width: 28px; text-align: right; padding-top: 2px;
+}
+</style>
+
+<!-- ═══════════════════════════════════════════════ -->
+<!--  SCREENS                                        -->
+<!-- ═══════════════════════════════════════════════ -->
+<div id="app">
+
+  <!-- LOADING -->
+  <div class="screen active" id="s-loading">
+    <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;text-align:center">
+      <div class="game-logo">คำดักเพื่อน</div>
+      <div id="loading-status" style="color:var(--muted);font-size:.88rem">กำลังเชื่อมต่อ...</div>
+      <div id="loading-spinner" class="spinner"></div>
+      <div id="loading-error" hidden style="background:rgba(255,63,91,.08);border:1px solid rgba(255,63,91,.25);border-radius:14px;padding:16px 20px;max-width:300px;font-size:.85rem;line-height:1.65;color:var(--text)"></div>
+    </div>
+  </div>
+
+  <!-- HOME -->
+  <div class="screen" id="s-home">
+    <span class="hero-emoji">🎯</span>
+    <div style="text-align:center">
+      <div class="game-logo">คำดักเพื่อน</div>
+      <div class="home-tagline">เกมจับโป๊ะ · ล่อให้เพื่อนพลาด</div>
+    </div>
+    <div class="btn-stack">
+      <button class="btn btn-red" onclick="goCreate()">🏠 สร้างห้องใหม่</button>
+      <button class="btn btn-ghost" onclick="goJoin()">🔑 เข้าร่วมด้วย Room Code</button>
+    </div>
+  </div>
+
+  <!-- JOIN (enter code) -->
+  <div class="screen" id="s-join">
+    <button class="back-btn" onclick="showScreen('s-home')">← ย้อนกลับ</button>
+    <div class="screen-title">เข้าร่วมห้อง</div>
+    <div class="screen-desc">ใส่ Room Code 6 ตัวจาก Host</div>
+    <div class="field code-field">
+      <label for="code-input">Room Code</label>
+      <input id="code-input" type="text" maxlength="6" placeholder="XXXXXX"
+             oninput="this.value=this.value.toUpperCase()"
+             onkeydown="if(event.key==='Enter')confirmCode()">
+    </div>
+    <div class="btn-stack">
+      <button class="btn btn-purple" onclick="confirmCode()">ต่อไป →</button>
+    </div>
+  </div>
+
+  <!-- PROFILE -->
+  <div class="screen" id="s-profile">
+    <button class="back-btn" id="profile-back-btn" onclick="showScreen('s-home')">← ย้อนกลับ</button>
+    <div class="screen-title">สร้างตัวละคร</div>
+    <div class="screen-desc">เลือกหน้าและตั้งชื่อของคุณ</div>
+    <div style="font-size:.78rem;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">เลือกหน้า</div>
+    <div class="av-grid" id="av-grid"></div>
+    <div class="field">
+      <label for="pname">ชื่อเล่น</label>
+      <input id="pname" type="text" maxlength="12" placeholder="เช่น มานะ, แนน, โต้ง..."
+             onkeydown="if(event.key==='Enter')confirmProfile()">
+    </div>
+    <div class="btn-stack">
+      <button class="btn btn-red" id="profile-btn" onclick="confirmProfile()">🏠 สร้างห้อง</button>
+    </div>
+  </div>
+
+  <!-- LOBBY -->
+  <div class="screen" id="s-lobby">
+    <div class="lobby-header">
+      <div>
+        <div style="font-size:.73rem;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Room Code</div>
+        <div class="room-code" id="lobby-code">------</div>
+      </div>
+      <button class="copy-btn" onclick="copyCode()">📋 คัดลอก</button>
+    </div>
+
+    <!-- Score target (host only) -->
+    <div class="score-row" id="score-row">
+      <label>เป้าหมาย</label>
+      <div class="score-opts">
+        <div class="score-opt" onclick="setScore(7,this)">7</div>
+        <div class="score-opt sel" onclick="setScore(10,this)">10</div>
+        <div class="score-opt" onclick="setScore(15,this)">15</div>
+      </div>
+    </div>
+
+    <!-- Penalty (host only) -->
+    <div class="penalty-row" id="penalty-row" hidden>
+      <label for="penalty-input">🔥 โทษผู้แพ้ <span style="font-size:.7rem;text-transform:none;letter-spacing:0;opacity:.6">(ไม่บังคับ)</span></label>
+      <input id="penalty-input" type="text" maxlength="60"
+             placeholder="เช่น เต้น 10 ท่า, ร้องเพลง, โทรหาอดีต..."
+             oninput="debouncePenalty(this.value)">
+    </div>
+
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+      <div class="section-label" style="margin:0">ผู้เล่น <span id="lobby-count">0/8</span></div>
+    </div>
+
+    <div class="player-list" id="lobby-players"></div>
+
+    <div id="lobby-hint" style="color:var(--muted);font-size:.82rem;text-align:center;margin-bottom:16px"></div>
+
+    <div class="btn-stack">
+      <button class="btn btn-green" id="start-btn" hidden onclick="startGame()">▶ เริ่มเกม</button>
+      <button class="btn btn-ghost" onclick="leaveRoom()">ออกจากห้อง</button>
+    </div>
+  </div>
+
+  <!-- PRIVACY COUNTDOWN -->
+  <div class="screen" id="s-trap-privacy">
+    <div class="privacy-wrap">
+      <div class="privacy-blur" style="font-family:'Kanit',sans-serif;font-weight:900;font-size:1.3rem;color:var(--red)">🎯 เตรียมตั้งกับดัก</div>
+      <div class="privacy-count" id="privacy-count">3</div>
+      <div class="privacy-hint">ซ่อนหน้าจอจากเพื่อน<br>แล้วรอรับมือถือของคุณ</div>
+    </div>
+  </div>
+
+  <!-- TRAP: SELECT TARGETS — Step 3 -->
+  <div class="screen" id="s-trap-targets">
+    <div class="screen-title">🎯 เลือกเหยื่อ</div>
+    <div class="screen-desc">เลือกใครก็ได้ที่อยากตั้งคำดัก — เลือกได้หลายคน</div>
+    <div class="player-list" id="trap-target-list"></div>
+    <div class="btn-stack">
+      <button class="btn btn-red" id="trap-confirm-btn" onclick="confirmTargets()" disabled>ตั้งคำดัก →</button>
+      <button class="btn btn-ghost" onclick="skipTraps()">😇 ไม่ตั้งกับดักรอบนี้</button>
+    </div>
+  </div>
+
+  <!-- TRAP: SET WORD — Step 3 -->
+  <div class="screen" id="s-trap-word">
+    <div class="trap-for-box" id="trap-for-box"></div>
+    <div class="trap-progress" id="trap-progress"></div>
+    <div class="field">
+      <label for="trap-word-input">คำต้องห้าม</label>
+      <input id="trap-word-input" type="text" maxlength="20" placeholder="คำที่ทำให้พูดยาก..."
+             onkeydown="if(event.key==='Enter')submitTrapWord()">
+    </div>
+    <div style="color:var(--muted);font-size:.8rem;margin-bottom:20px;line-height:1.6">
+      💡 เลือกคำที่เพื่อนมักพูดบ่อย เช่น ชื่อคน สถานที่ หรือคำที่ใช้ติดปาก
+    </div>
+    <div class="btn-stack">
+      <button class="btn btn-red" onclick="submitTrapWord()">ยืนยัน ✓</button>
+    </div>
+  </div>
+
+  <!-- TRAP: WAITING — Step 3 -->
+  <div class="screen" id="s-trap-wait">
+    <div class="screen-title">⏳ รอเพื่อนตั้งกับดัก</div>
+    <div class="screen-desc">เกมจะเริ่มอัตโนมัติเมื่อทุกคนพร้อม</div>
+    <div class="wait-counter" id="wait-counter">0/0 พร้อมแล้ว</div>
+    <div id="trap-wait-list"></div>
+    <div class="btn-stack" id="force-start-wrap" hidden>
+      <button class="btn btn-green" onclick="forceStartActive()">▶ เริ่มเกมเลย (Host)</button>
+      <button class="btn btn-ghost" onclick="leaveRoom()">ออกจากห้อง</button>
+    </div>
+    <div class="btn-stack" id="force-start-nonhost" hidden>
+      <button class="btn btn-ghost" onclick="leaveRoom()">ออกจากห้อง</button>
+    </div>
+  </div>
+
+  <!-- ACTIVE GAME — Step 4 -->
+  <div class="screen" id="s-game">
+    <div class="game-header">
+      <div class="screen-title" style="margin-bottom:0">🎮 กำลังเล่น</div>
+      <div id="game-score-target" style="font-size:.82rem;color:var(--gold);font-family:'Kanit',sans-serif;font-weight:700"></div>
+    </div>
+    <div id="my-role-card"></div>
+    <div id="bust-watch-overlay" hidden></div>
+    <div class="section-label">คะแนน</div>
+    <div id="game-score-list" style="margin-bottom:14px"></div>
+    <div class="btn-stack">
+      <button class="btn btn-red" id="bust-btn" onclick="goToBust()" hidden>🚨 แจ้งจับ!</button>
+      <button class="btn btn-ghost" onclick="leaveRoom()" style="font-size:.85rem;padding:11px">ออกจากห้อง</button>
+    </div>
+  </div>
+
+  <!-- BUST: SELECT TARGET — Step 4 -->
+  <div class="screen" id="s-bust-select">
+    <button class="back-btn" onclick="showScreen('s-game')">← ยกเลิก</button>
+    <div class="screen-title">💥 แจ้งจับใคร?</div>
+    <div class="screen-desc">เลือกคนที่คุณคิดว่าพูดคำต้องห้าม</div>
+    <div class="player-list" id="bust-target-list"></div>
+  </div>
+
+  <!-- BUST: CONFIRM — Step 4 (target's accept/reject screen) -->
+  <div class="screen" id="s-bust-confirm">
+    <div id="bust-confirm-content" style="flex:1;display:flex;flex-direction:column"></div>
+  </div>
+
+  <!-- VOTE — Step 4 -->
+  <div class="screen" id="s-vote">
+    <div class="screen-title">🗳️ โหวตตัดสิน</div>
+    <div id="vote-accuse-info" style="margin-bottom:12px"></div>
+    <div style="text-align:center;margin-bottom:4px">
+      <div style="font-size:.73rem;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px">เวลาที่เหลือ</div>
+      <div class="vote-countdown-num" id="vote-countdown">10</div>
+    </div>
+    <div id="vote-progress" style="text-align:center;color:var(--muted);font-size:.82rem;margin-bottom:16px"></div>
+    <div id="vote-content"></div>
+  </div>
+
+  <!-- VOTE RESULT — Step 4 -->
+  <div class="screen" id="s-vote-result">
+    <div id="vote-result-content" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;text-align:center;padding:16px 0"></div>
+    <div class="btn-stack" id="vote-result-actions"></div>
+  </div>
+
+  <!-- END GAME — Step 5 -->
+  <div class="screen" id="s-end">
+    <div class="placeholder-wrap">
+      <div class="placeholder-icon">🏆</div>
+      <div class="placeholder-title">จบเกม + Achievement</div>
+      <div class="placeholder-sub">กำลังสร้าง — Step 5</div>
+    </div>
+  </div>
+
+</div><!-- /#app -->
+
+<div id="toast"></div>
+
+<!-- ═══════════════════════════════════════════════ -->
+<!--  JAVASCRIPT                                     -->
+<!-- ═══════════════════════════════════════════════ -->
+<script>
+// ═══════════════════════════════════════════════════
+// FIREBASE CONFIG
+// วิธีตั้งค่า:
+// 1. ไปที่ https://console.firebase.google.com
+// 2. สร้าง Project ใหม่
+// 3. เปิด Realtime Database (ตั้ง region: asia-southeast1)
+// 4. เปิด Authentication → Anonymous
+// 5. ไปที่ Project Settings → Web App → Copy config มาแทนด้านล่าง
+// ═══════════════════════════════════════════════════
+const firebaseConfig = {
+  apiKey:            "AIzaSyBMKDRyDXmHNG73L1RU05K8z8PZ72yTuL0",
+  authDomain:        "trap-word.firebaseapp.com",
+  databaseURL:       "https://trap-word-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId:         "trap-word",
+  storageBucket:     "trap-word.firebasestorage.app",
+  messagingSenderId: "183057713461",
+  appId:             "1:183057713461:web:298430a7667a2ed41ee47c"
+};
+
+// ═══════════════════════════════════════════════════
+// FIREBASE SECURITY RULES (วางใน Realtime Database → Rules)
+// {
+//   "rules": {
+//     "rooms": {
+//       "$roomId": {
+//         ".read":  "auth != null",
+//         ".write": "auth != null",
+//         "traps": {
+//           "$trapId": {
+//             "secretWord": {
+//               ".read": "auth.uid === data.parent().child('hunterId').val()"
+//             }
+//           }
+//         }
+//       }
+//     }
+//   }
+// }
+// ═══════════════════════════════════════════════════
+
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db   = firebase.database();
+
+// ── State ────────────────────────────────────────────
+let myUid      = null;
+let myName     = '';
+let myAvatar   = '🦊';
+let myAvatarBg = '#2a1f3d';
+let roomId     = null;
+let isHost     = false;
+let roomRef    = null;
+let roomSnap   = null;
+let profileMode = 'create'; // 'create' | 'join'
+let pendingCode = '';
+let scoreTarget = 10;
+
+// ── Setup Phase State ─────────────────────────────────
+let trapTargets = [];
+let trapIdx     = 0;
+let trapWords   = {};
+
+// ── Active Game State ─────────────────────────────────
+let voteTimer    = null;
+let penaltyTimer = null;
+
+const AVATARS = [
+  {e:'🦊',bg:'#2a1f3d'},{e:'🐺',bg:'#1f1f2d'},{e:'🦁',bg:'#2d2a1a'},
+  {e:'🐯',bg:'#2a1e1a'},{e:'🐸',bg:'#1f2d1f'},{e:'🐼',bg:'#1e1e1e'},
+  {e:'🦋',bg:'#1e2a2d'},{e:'🦄',bg:'#2a1d2d'},{e:'🐙',bg:'#1d2228'},
+  {e:'👾',bg:'#1f2a1f'},{e:'🤖',bg:'#1a2428'},{e:'🐲',bg:'#1a2a1a'},
+  {e:'🦅',bg:'#1e2228'},{e:'🐬',bg:'#1a2430'},{e:'🎃',bg:'#2a1e10'},
+];
+
+// ── Achievements (13 End Game Titles) ─────────────────
+// check(uid, stats, players, snap) → bool
+const ACHIEVEMENTS = [
+  { id:'champion',    icon:'⚡', name:'เทพสายฟ้า',          color:'gold',
+    check:(u,s,p,n)=> n.winner===u },
+  { id:'firstBlood',  icon:'🩸', name:'ปฐมนักล่า',          color:'red',
+    check:(u,s,p,n)=> n.firstBloodUid===u },
+  { id:'topBuster',   icon:'👑', name:'ราชาแห่งกับดัก',     color:'gold',
+    check:(u,s,p,n)=> topStat(s,'busts',1)===u },
+  { id:'topTarget',   icon:'🫤', name:'พูดแล้วติดอ่าง',     color:'red',
+    check:(u,s,p,n)=> topStat(s,'gotBusted',2)===u },
+  { id:'topSurvivor', icon:'✊', name:'นักสู้ไม่ยอมแพ้',    color:'purple',
+    check:(u,s,p,n)=> topStat(s,'survivedVote',1)===u },
+  { id:'topVoter',    icon:'🧐', name:'นักสืบแม่นปืน',       color:'purple',
+    check:(u,s,p,n)=> topStat(s,'correctVotes',2)===u },
+  { id:'untouchable', icon:'😇', name:'ผู้บริสุทธิ์',         color:'green',
+    check:(u,s,p,n)=> {
+      const anyBust = Object.values(s).some(x=>(x.busts||0)+(x.falseBusts||0)>0);
+      return anyBust && (s[u]?.gotBusted||0)===0;
+    }},
+  { id:'falseBuster', icon:'🤡', name:'จับโป๊ะแต่ผิดคน',    color:'muted',
+    check:(u,s,p,n)=> topStat(s,'falseBusts',1)===u },
+  { id:'topTrapper',  icon:'🐍', name:'งูพิษสายแสบ',         color:'red',
+    check:(u,s,p,n)=> topStat(s,'trapsSet',2)===u },
+  { id:'peacemaker',  icon:'☮️', name:'นักสันติภาพ',         color:'green',
+    check:(u,s,p,n)=> {
+      const anyTraps = Object.values(s).some(x=>(x.trapsSet||0)>0);
+      return anyTraps && (s[u]?.trapsSet||0)===0;
+    }},
+  { id:'fullTrapper', icon:'👻', name:'ผีหลอกเพื่อน',        color:'purple',
+    check:(u,s,p,n)=> {
+      if(Object.keys(p).length<3) return false;
+      const myT = Object.values(n.traps||{}).filter(t=>t.hunterId===u);
+      return new Set(myT.map(t=>t.targetId)).size >= Object.keys(p).length-1;
+    }},
+  { id:'gracefulLoser',icon:'🎭',name:'นักแสดงผู้ยิ่งใหญ่', color:'muted',
+    check:(u,s,p,n)=> n.winner!==u && topStat(s,'accepted',1)===u },
+  { id:'sacrifice',   icon:'💀', name:'เสียสละเพื่อเกม',    color:'muted',
+    check:(u,s,p,n)=> n.winner!==u && topStat(s,'gotBusted',3)===u },
+];
+
+// ── Init ─────────────────────────────────────────────
+function showLoadingError(msg) {
+  document.getElementById('loading-spinner').hidden = true;
+  document.getElementById('loading-status').hidden  = true;
+  const el = document.getElementById('loading-error');
+  el.hidden = false;
+  el.innerHTML = msg;
+}
+
+const isPlaceholder = firebaseConfig.apiKey === 'YOUR_API_KEY';
+if (isPlaceholder) {
+  showLoadingError(`
+    ⚠️ <strong>ยังไม่ได้ตั้งค่า Firebase Config</strong><br><br>
+    เปิดไฟล์ <code style="color:var(--purple)">index.html</code> แล้วใส่ค่าจริงใน <code style="color:var(--purple)">firebaseConfig</code><br><br>
+    <span style="color:var(--muted)">สร้าง Project ได้ที่ console.firebase.google.com<br>แล้วเปิด Realtime Database + Anonymous Auth</span>
+  `);
+} else {
+  auth.signInAnonymously()
+    .then(c => { myUid = c.user.uid; buildAvatarGrid(); showScreen('s-home'); })
+    .catch(e => showLoadingError(`
+      ❌ <strong>เชื่อมต่อ Firebase ไม่ได้</strong><br><br>
+      ${e.message || 'Unknown error'}<br><br>
+      <span style="color:var(--muted)">ตรวจสอบ Firebase Config และเปิด Anonymous Auth ใน Firebase Console</span>
+    `));
+}
+
+// ── Screen navigation ─────────────────────────────────
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+// ── Toast ─────────────────────────────────────────────
+function toast(msg, dur = 2500) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), dur);
+}
+
+// ── Avatar grid ───────────────────────────────────────
+function buildAvatarGrid() {
+  const g = document.getElementById('av-grid');
+  g.innerHTML = '';
+  AVATARS.forEach((av, i) => {
+    const el = document.createElement('div');
+    el.className = 'av-item' + (i === 0 ? ' sel' : '');
+    el.style.background = av.bg;
+    el.textContent = av.e;
+    el.onclick = () => {
+      g.querySelectorAll('.av-item').forEach(x => x.classList.remove('sel'));
+      el.classList.add('sel');
+      myAvatar = av.e; myAvatarBg = av.bg;
+    };
+    g.appendChild(el);
+  });
+  myAvatar = AVATARS[0].e; myAvatarBg = AVATARS[0].bg;
+}
+
+// ── Room code generator ───────────────────────────────
+function genCode() {
+  const c = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  return Array.from({length:6}, () => c[Math.floor(Math.random()*c.length)]).join('');
+}
+
+// ── Score selector ────────────────────────────────────
+function setScore(n, el) {
+  scoreTarget = n;
+  document.querySelectorAll('.score-opt').forEach(x => x.classList.remove('sel'));
+  el.classList.add('sel');
+  if (roomRef && isHost) roomRef.child('scoreTarget').set(n);
+}
+
+// ── Go to profile ─────────────────────────────────────
+function goCreate() {
+  profileMode = 'create';
+  document.getElementById('profile-btn').textContent = '🏠 สร้างห้อง';
+  document.getElementById('profile-back-btn').onclick = () => showScreen('s-home');
+  document.getElementById('pname').value = '';
+  showScreen('s-profile');
+}
+
+function goJoin() {
+  document.getElementById('code-input').value = '';
+  showScreen('s-join');
+}
+
+function confirmCode() {
+  const code = document.getElementById('code-input').value.trim().toUpperCase();
+  if (code.length !== 6) { toast('ใส่ Room Code 6 ตัว'); return; }
+  pendingCode = code;
+  profileMode = 'join';
+  document.getElementById('profile-btn').textContent = '🔑 เข้าห้อง';
+  document.getElementById('profile-back-btn').onclick = () => showScreen('s-join');
+  document.getElementById('pname').value = '';
+  showScreen('s-profile');
+}
+
+// ── Confirm profile ───────────────────────────────────
+async function confirmProfile() {
+  const name = document.getElementById('pname').value.trim();
+  if (!name) { toast('ใส่ชื่อก่อนนะ'); return; }
+  myName = name;
+  const btn = document.getElementById('profile-btn');
+  btn.disabled = true; btn.textContent = '...';
+  try {
+    if (profileMode === 'create') await createRoom();
+    else await joinRoom(pendingCode);
+  } catch(e) {
+    toast('เกิดข้อผิดพลาด ลองใหม่');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = profileMode === 'create' ? '🏠 สร้างห้อง' : '🔑 เข้าห้อง';
+  }
+}
+
+// ── Create room ───────────────────────────────────────
+async function createRoom() {
+  let code, snap;
+  do {
+    code = genCode();
+    snap = await db.ref(`rooms/${code}`).once('value');
+  } while (snap.exists());
+
+  roomId = code; isHost = true;
+  roomRef = db.ref(`rooms/${roomId}`);
+
+  await roomRef.set({
+    host: myUid, phase: 'lobby', scoreTarget,
+    createdAt: firebase.database.ServerValue.TIMESTAMP,
+    players: { [myUid]: playerObj() }
+  });
+
+  setupPresence();
+  listenRoom();
+  showLobby();
+}
+
+// ── Join room ─────────────────────────────────────────
+async function joinRoom(code) {
+  const ref = db.ref(`rooms/${code}`);
+  const snap = await ref.once('value');
+  if (!snap.exists())              { toast('ไม่พบห้อง ' + code); return; }
+  const d = snap.val();
+  if (d.phase !== 'lobby')         { toast('เกมเริ่มไปแล้ว'); return; }
+  if (Object.keys(d.players||{}).length >= 8) { toast('ห้องเต็มแล้ว (8/8)'); return; }
+
+  roomId = code; isHost = false;
+  roomRef = ref;
+
+  await roomRef.child(`players/${myUid}`).set(playerObj());
+  setupPresence();
+  listenRoom();
+  showLobby();
+}
+
+function playerObj() {
+  return {
+    name: myName, avatar: myAvatar, avatarBg: myAvatarBg,
+    score: 0, online: true, trapReady: false,
+    joinedAt: firebase.database.ServerValue.TIMESTAMP
+  };
+}
+
+function setupPresence() {
+  roomRef.child(`players/${myUid}/online`).onDisconnect().set(false);
+}
+
+// ── Listen to room ────────────────────────────────────
+function listenRoom() {
+  roomRef.on('value', snap => {
+    if (!snap.exists()) { toast('ห้องถูกปิดแล้ว'); doLeave(); return; }
+    const prev = roomSnap;
+    roomSnap = snap.val();
+    renderLobby();
+    renderTrapWait();
+    // Re-render whichever data-driven screen is active
+    const activeId = document.querySelector('.screen.active')?.id;
+    if (activeId === 's-game')        renderGame();
+    if (activeId === 's-vote')        renderVote();
+    if (activeId === 's-vote-result') renderVoteResult();
+    if (activeId === 's-bust-confirm' && myUid === roomSnap?.bustState?.targetId) renderBustReceived();
+    if (!prev || prev.phase !== roomSnap.phase) handlePhase(roomSnap.phase);
+  });
+}
+
+// ── Show lobby ────────────────────────────────────────
+function showLobby() {
+  document.getElementById('lobby-code').textContent = roomId;
+  document.getElementById('score-row').style.display = isHost ? 'flex' : 'none';
+  showScreen('s-lobby');
+}
+
+function copyCode() {
+  navigator.clipboard?.writeText(roomId).then(() => toast('คัดลอก Room Code แล้ว!'));
+}
+
+// ── Render lobby ──────────────────────────────────────
+function renderLobby() {
+  if (!roomSnap) return;
+  const players = roomSnap.players || {};
+  const uids    = Object.keys(players);
+
+  document.getElementById('lobby-count').textContent = `${uids.length}/8`;
+
+  const list = document.getElementById('lobby-players');
+  list.innerHTML = '';
+  uids.forEach(uid => {
+    const p     = players[uid];
+    const isMe  = uid === myUid;
+    const isCap = uid === roomSnap.host;
+    const card  = document.createElement('div');
+    card.className = 'player-card' + (p.online ? '' : ' offline');
+    card.innerHTML = `
+      <div class="player-av" style="background:${p.avatarBg}">${p.avatar}</div>
+      <div>
+        <div class="player-name">${p.name}${isMe ? ' <span class="me-tag">(คุณ)</span>' : ''}</div>
+        <div class="player-sub">${isCap ? 'Host' : (p.online ? 'ออนไลน์' : 'ออฟไลน์')}</div>
+      </div>
+      <div class="player-dot" style="background:${p.online?'var(--green)':'var(--muted)'}"></div>
+      <span class="pbadge ${isCap?'host':'ready'}">${isCap?'Host':'พร้อม'}</span>
+    `;
+    list.appendChild(card);
+  });
+
+  const startBtn   = document.getElementById('start-btn');
+  const hint       = document.getElementById('lobby-hint');
+  const penaltyRow = document.getElementById('penalty-row');
+  const penaltyInp = document.getElementById('penalty-input');
+  if (isHost) {
+    startBtn.hidden   = false;
+    startBtn.disabled = uids.length < 2;
+    startBtn.textContent = uids.length < 2 ? `รอเพื่อนอีก ${2-uids.length} คน...` : '▶ เริ่มเกม';
+    hint.textContent  = uids.length < 2 ? 'ต้องการผู้เล่นอย่างน้อย 2 คน' : '';
+    penaltyRow.hidden = false;
+    if (document.activeElement !== penaltyInp) penaltyInp.value = roomSnap.penalty || '';
+  } else {
+    startBtn.hidden   = true;
+    penaltyRow.hidden = true;
+    hint.textContent  = `รอ Host (${players[roomSnap.host]?.name || 'Host'}) เริ่มเกม`;
+  }
+}
+
+// ── Penalty (host) ───────────────────────────────────
+function debouncePenalty(val) {
+  clearTimeout(penaltyTimer);
+  penaltyTimer = setTimeout(() => {
+    if (roomRef && isHost) roomRef.child('penalty').set(val.trim() || null);
+  }, 600);
+}
+
+// ── Start game (host) ─────────────────────────────────
+async function startGame() {
+  if (roomSnap?.host !== myUid) return;
+  const players = roomSnap.players || {};
+  if (Object.keys(players).length < 2) { toast('ต้องการผู้เล่นอย่างน้อย 2 คน'); return; }
+  await roomRef.child('phase').set('trap-setup');
+}
+
+// ── Handle phase changes ──────────────────────────────
+function handlePhase(phase) {
+  if (phase === 'lobby') {
+    showLobby(); return;
+  }
+  if (phase === 'trap-setup') {
+    const myReady = roomSnap?.players?.[myUid]?.trapReady;
+    if (myReady) { showTrapWait(); return; }
+    startPrivacyCountdown(); return;
+  }
+  if (phase === 'active') {
+    clearInterval(voteTimer); renderGame(); showScreen('s-game'); return;
+  }
+  if (phase === 'busted') {
+    const bust = roomSnap?.bustState;
+    if (!bust) return;
+    if (myUid === bust.targetId) { renderBustReceived(); showScreen('s-bust-confirm'); }
+    else { renderGame(); showScreen('s-game'); }
+    return;
+  }
+  if (phase === 'voting') {
+    renderVote(); showScreen('s-vote'); startVoteTimer(); return;
+  }
+  if (phase === 'vote-result') {
+    clearInterval(voteTimer); renderVoteResult(); showScreen('s-vote-result'); return;
+  }
+  if (phase === 'ended') {
+    clearInterval(voteTimer); renderEnd(); showScreen('s-end'); return;
+  }
+}
+
+// ── Privacy countdown ─────────────────────────────────
+let privacyTimer = null;
+function startPrivacyCountdown() {
+  showScreen('s-trap-privacy');
+  let t = 3;
+  document.getElementById('privacy-count').textContent = t;
+  clearInterval(privacyTimer);
+  privacyTimer = setInterval(() => {
+    t--;
+    document.getElementById('privacy-count').textContent = t;
+    if (t <= 0) {
+      clearInterval(privacyTimer);
+      renderTrapTargets();
+      showScreen('s-trap-targets');
+    }
+  }, 1000);
+}
+
+// ── Trap Target Selection ─────────────────────────────
+function renderTrapTargets() {
+  if (!roomSnap) return;
+  const players = roomSnap.players || {};
+  const list    = document.getElementById('trap-target-list');
+  if (!list) return;
+  list.innerHTML = '';
+  trapTargets = []; trapWords = {};
+  document.getElementById('trap-confirm-btn').disabled = true;
+
+  Object.entries(players).forEach(([uid, p]) => {
+    if (uid === myUid) return;
+    const card = document.createElement('div');
+    card.className = 'trap-target-card';
+    card.id = `tc-${uid}`;
+    card.innerHTML = `
+      <div class="player-av" style="background:${p.avatarBg}">${p.avatar}</div>
+      <div>
+        <div class="player-name">${p.name}</div>
+        <div class="player-sub">${p.online ? 'ออนไลน์' : 'ออฟไลน์'}</div>
+      </div>
+      <div class="trap-check">✓</div>
+    `;
+    card.onclick = () => toggleTrapTarget(card);
+    list.appendChild(card);
+  });
+}
+
+function toggleTrapTarget(card) {
+  card.classList.toggle('sel');
+  const selCount = document.querySelectorAll('.trap-target-card.sel').length;
+  document.getElementById('trap-confirm-btn').disabled = selCount === 0;
+}
+
+function confirmTargets() {
+  trapTargets = Array.from(document.querySelectorAll('.trap-target-card.sel'))
+    .map(el => el.id.replace('tc-', ''));
+  if (!trapTargets.length) { skipTraps(); return; }
+  trapIdx = 0; trapWords = {};
+  showTrapWordFor(trapTargets[0]);
+}
+
+function showTrapWordFor(targetUid) {
+  const players = roomSnap?.players || {};
+  const p = players[targetUid];
+  if (!p) { trapIdx++; nextTrapWord(); return; }
+
+  document.getElementById('trap-for-box').innerHTML = `
+    <div style="width:48px;height:48px;border-radius:12px;background:${p.avatarBg};
+         display:flex;align-items:center;justify-content:center;font-size:1.5rem;flex-shrink:0">${p.avatar}</div>
+    <div>
+      <div class="trap-for-label">คุณกำลังตั้งคำดักให้</div>
+      <div class="trap-for-name">${p.name}</div>
+    </div>
+  `;
+
+  const prog = document.getElementById('trap-progress');
+  prog.innerHTML = '';
+  if (trapTargets.length > 1) {
+    const lbl = document.createElement('span');
+    lbl.style.cssText = 'font-size:.8rem;color:var(--muted);margin-right:6px';
+    lbl.textContent = `${trapIdx+1}/${trapTargets.length}`;
+    prog.appendChild(lbl);
+    trapTargets.forEach((_, i) => {
+      const dot = document.createElement('div');
+      dot.className = 'trap-progress-dot' + (i < trapIdx ? ' done' : i === trapIdx ? ' cur' : '');
+      prog.appendChild(dot);
+    });
+  }
+
+  document.getElementById('trap-word-input').value = '';
+  showScreen('s-trap-word');
+  setTimeout(() => document.getElementById('trap-word-input').focus(), 300);
+}
+
+function submitTrapWord() {
+  const word = document.getElementById('trap-word-input').value.trim();
+  if (!word)           { toast('ใส่คำดักก่อนนะ'); return; }
+  if (word.length < 2) { toast('คำสั้นเกินไป — ต้องอย่างน้อย 2 ตัวอักษร'); return; }
+  trapWords[trapTargets[trapIdx]] = word;
+  trapIdx++;
+  nextTrapWord();
+}
+
+function nextTrapWord() {
+  if (trapIdx < trapTargets.length) showTrapWordFor(trapTargets[trapIdx]);
+  else submitAllTraps();
+}
+
+async function skipTraps() {
+  await roomRef.child(`players/${myUid}/trapReady`).set(true);
+  showTrapWait();
+}
+
+async function submitAllTraps() {
+  const updates = {};
+  Object.entries(trapWords).forEach(([targetUid, word]) => {
+    updates[`traps/${myUid}_${targetUid}`] = {
+      hunterId: myUid, targetId: targetUid, secretWord: word, active: true
+    };
+  });
+  updates[`players/${myUid}/trapReady`] = true;
+  const trapCount = Object.keys(trapWords).length;
+  if (trapCount > 0) updates[`stats/${myUid}/trapsSet`] = firebase.database.ServerValue.increment(trapCount);
+  await roomRef.update(updates);
+  showTrapWait();
+}
+
+function showTrapWait() {
+  renderTrapWait();
+  showScreen('s-trap-wait');
+}
+
+function renderTrapWait() {
+  const listEl = document.getElementById('trap-wait-list');
+  if (!listEl || !roomSnap) return;
+  const players  = roomSnap.players || {};
+  const uids     = Object.keys(players);
+  const readyCnt = uids.filter(uid => players[uid].trapReady).length;
+
+  document.getElementById('wait-counter').textContent = `${readyCnt}/${uids.length} พร้อมแล้ว`;
+
+  listEl.innerHTML = '';
+  uids.forEach(uid => {
+    const p   = players[uid];
+    const row = document.createElement('div');
+    row.className = 'wait-player-row';
+    row.innerHTML = `
+      <div style="width:40px;height:40px;border-radius:10px;background:${p.avatarBg};
+           display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0">${p.avatar}</div>
+      <div class="player-name">${p.name}${uid===myUid?' <span class="me-tag">(คุณ)</span>':''}</div>
+      <div class="wait-status">${p.trapReady ? '✅' : '⏳'}</div>
+    `;
+    listEl.appendChild(row);
+  });
+
+  document.getElementById('force-start-wrap').hidden    = !isHost;
+  document.getElementById('force-start-nonhost').hidden = isHost;
+
+  if (readyCnt === uids.length && uids.length >= 2 && isHost) {
+    roomRef.child('phase').set('active');
+  }
+}
+
+async function forceStartActive() {
+  if (isHost) await roomRef.child('phase').set('active');
+}
+
+// ── Active Game ───────────────────────────────────────
+function getMyTraps() {
+  if (!roomSnap?.traps) return [];
+  return Object.values(roomSnap.traps).filter(t => t.hunterId === myUid);
+}
+
+function renderGame() {
+  if (!roomSnap) return;
+  const phase   = roomSnap.phase;
+  const players = roomSnap.players || {};
+
+  const stEl = document.getElementById('game-score-target');
+  if (stEl) stEl.textContent = `เป้า: ${roomSnap.scoreTarget} แต้ม`;
+
+  // Bust overlay
+  const overlayEl = document.getElementById('bust-watch-overlay');
+  if (overlayEl) {
+    const bust = roomSnap.bustState;
+    if (phase === 'busted' && bust) {
+      overlayEl.hidden = false;
+      const hunter = players[bust.hunterId];
+      const target = players[bust.targetId];
+      const isHunter = myUid === bust.hunterId;
+      overlayEl.innerHTML = `
+        <div class="bust-watch-box">
+          <div class="bust-watch-title">${isHunter ? '⏳ รอเหยื่อตัดสินใจ...' : '🚨 กำลังจับ!'}</div>
+          <div style="font-size:.85rem;color:var(--muted);margin-top:4px">
+            ${hunter?.avatar} ${hunter?.name} → ${target?.avatar} ${target?.name}
+          </div>
+          <div class="bust-word-display" style="font-size:1.5rem;margin:8px 0">"${bust.secretWord}"</div>
+        </div>
+      `;
+    } else { overlayEl.hidden = true; }
+  }
+
+  // My role card
+  const roleEl = document.getElementById('my-role-card');
+  if (roleEl) {
+    const myTraps = getMyTraps();
+    if (myTraps.length > 0) {
+      const items = myTraps.map(t => {
+        const tgt = players[t.targetId];
+        return `<div class="trap-row" style="${t.active ? '' : 'opacity:.4'}">
+          <div style="width:36px;height:36px;border-radius:10px;background:${tgt?.avatarBg||'#222'};
+               display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0">${tgt?.avatar||'?'}</div>
+          <div>
+            <div style="font-size:.78rem;color:var(--muted)">${tgt?.name||'?'}</div>
+            <div class="secret-word-badge">"${t.secretWord}"</div>
+          </div>
+          ${t.active ? '' : '<div style="font-size:.8rem;color:var(--green);margin-left:auto">✓ จบ</div>'}
+        </div>`;
+      }).join('');
+      roleEl.innerHTML = `<div class="role-card role-card-hunter"><div class="role-card-label red">🕵️ คุณคือนักล่า</div>${items}</div>`;
+    } else {
+      roleEl.innerHTML = `<div class="role-card role-card-idle"><div class="role-card-label muted">บทบาทของคุณ</div><div style="font-size:.88rem;color:var(--muted)">😇 รอบนี้คุณไม่ได้ตั้งกับดักใคร</div></div>`;
+    }
+  }
+
+  // Bust button
+  const bustBtn = document.getElementById('bust-btn');
+  if (bustBtn) bustBtn.hidden = !getMyTraps().some(t => t.active) || phase !== 'active';
+
+  // Scoreboard
+  const scoreList = document.getElementById('game-score-list');
+  if (scoreList) {
+    const sorted = Object.entries(players).sort(([,a],[,b]) => (b.score||0)-(a.score||0));
+    scoreList.innerHTML = sorted.map(([uid, p]) => `
+      <div class="score-player-row">
+        <div style="width:36px;height:36px;border-radius:10px;background:${p.avatarBg};
+             display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0">${p.avatar}</div>
+        <div style="flex:1;font-size:.88rem;font-weight:600">${p.name}${uid===myUid?' <span class="me-tag">(คุณ)</span>':''}</div>
+        <div class="score-num">${p.score||0}</div>
+      </div>
+    `).join('');
+  }
+}
+
+// ── Bust Flow (Hunter) ────────────────────────────────
+function goToBust() {
+  const active = getMyTraps().filter(t => t.active);
+  if (!active.length) { toast('ไม่มีกับดักที่ active อยู่'); return; }
+  renderBustSelect(active);
+  showScreen('s-bust-select');
+}
+
+function renderBustSelect(traps) {
+  const players = roomSnap?.players || {};
+  const list = document.getElementById('bust-target-list');
+  if (!list) return;
+  list.innerHTML = '';
+  traps.forEach(trap => {
+    const tgt = players[trap.targetId];
+    if (!tgt) return;
+    const card = document.createElement('div');
+    card.className = 'player-card';
+    card.style.cursor = 'pointer';
+    card.innerHTML = `
+      <div class="player-av" style="background:${tgt.avatarBg}">${tgt.avatar}</div>
+      <div style="flex:1">
+        <div class="player-name">${tgt.name}</div>
+        <div class="secret-word-badge">"${trap.secretWord}"</div>
+      </div>
+      <div style="color:var(--red);font-size:.88rem;white-space:nowrap;font-family:'Kanit',sans-serif;font-weight:700">จับ! →</div>
+    `;
+    card.onclick = () => submitBust(trap.targetId, trap.secretWord);
+    list.appendChild(card);
+  });
+}
+
+async function submitBust(targetId, secretWord) {
+  const { committed } = await roomRef.transaction(room => {
+    if (!room || room.phase !== 'active') return;
+    return { ...room, phase: 'busted', bustState: { hunterId: myUid, targetId, secretWord, status: 'pending' } };
+  });
+  if (!committed) { toast('มีการจับเกิดขึ้นแล้ว!'); showScreen('s-game'); }
+}
+
+// ── Bust Flow (Target) ────────────────────────────────
+function renderBustReceived() {
+  const bust = roomSnap?.bustState;
+  if (!bust) return;
+  const hunter = (roomSnap.players||{})[bust.hunterId];
+  document.getElementById('bust-confirm-content').innerHTML = `
+    <div class="screen-title">🚨 คุณถูกกล่าวหา!</div>
+    <div class="screen-desc">${hunter?.avatar} <strong>${hunter?.name}</strong> บอกว่าคุณพูดคำต้องห้าม</div>
+    <div class="bust-accuse-card">
+      <div style="font-size:.8rem;color:var(--muted);margin-bottom:8px">คำต้องห้ามของคุณ</div>
+      <div class="bust-word-display">"${bust.secretWord}"</div>
+      <div style="font-size:.82rem;color:var(--muted)">คุณพูดคำนี้จริงๆ ไหม?</div>
+    </div>
+    <div class="btn-stack" style="margin-top:auto">
+      <button class="btn" style="background:rgba(139,119,255,.12);border:1.5px solid rgba(139,119,255,.3);
+              color:var(--purple);font-family:'Kanit',sans-serif;font-weight:700;font-size:1rem;
+              padding:15px;border-radius:14px;cursor:pointer;transition:transform .12s,opacity .12s;width:100%"
+              onclick="respondToBust('reject')">✊ ปฏิเสธ — ไม่ได้พูด! (โหวต)</button>
+      <button class="btn btn-red" onclick="respondToBust('accept')">😔 ยอมรับ — พูดจริง</button>
+    </div>
+  `;
+}
+
+async function respondToBust(type) {
+  const bust = roomSnap?.bustState;
+  if (!bust) return;
+  const players = roomSnap.players || {};
+
+  if (type === 'accept') {
+    const hunterScore = (players[bust.hunterId]?.score || 0) + 1;
+    const updates = {
+      bustState: null,
+      [`players/${bust.hunterId}/score`]: hunterScore,
+      [`traps/${bust.hunterId}_${bust.targetId}/active`]: false,
+      [`stats/${bust.hunterId}/busts`]: firebase.database.ServerValue.increment(1),
+      [`stats/${bust.targetId}/gotBusted`]: firebase.database.ServerValue.increment(1),
+      [`stats/${bust.targetId}/accepted`]: firebase.database.ServerValue.increment(1),
+    };
+    if (!roomSnap.firstBloodUid) updates.firstBloodUid = bust.hunterId;
+    updates.phase = hunterScore >= roomSnap.scoreTarget ? 'ended' : 'active';
+    if (hunterScore >= roomSnap.scoreTarget) updates.winner = bust.hunterId;
+    await roomRef.update(updates);
+  } else {
+    await roomRef.update({
+      'bustState/status': 'voting',
+      phase: 'voting',
+      voteState: { deadline: Date.now() + 11000, votes: {} }
+    });
+  }
+}
+
+// ── Voting ────────────────────────────────────────────
+function renderVote() {
+  if (!roomSnap) return;
+  const bust      = roomSnap.bustState;
+  const voteState = roomSnap.voteState;
+  if (!bust || !voteState) return;
+  const players = roomSnap.players || {};
+  const hunter  = players[bust.hunterId];
+  const target  = players[bust.targetId];
+
+  const infoEl = document.getElementById('vote-accuse-info');
+  if (infoEl) infoEl.innerHTML = `
+    <div style="background:var(--surf);border:1px solid var(--border);border-radius:12px;padding:12px 14px">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px">
+        <span style="font-size:1.3rem">${hunter?.avatar}</span>
+        <span style="color:var(--muted);font-size:.85rem">กล่าวหาว่า <strong style="color:var(--text)">${target?.avatar} ${target?.name}</strong> พูดว่า</span>
+      </div>
+      <div class="secret-word-badge">"${bust.secretWord}"</div>
+    </div>
+  `;
+
+  const remaining = Math.max(0, Math.ceil(((voteState.deadline||0) - Date.now()) / 1000));
+  const countEl = document.getElementById('vote-countdown');
+  if (countEl) countEl.textContent = remaining;
+
+  const eligible = Object.keys(players).filter(uid => uid !== bust.hunterId && uid !== bust.targetId);
+  const voted    = eligible.filter(uid => voteState.votes?.[uid]);
+  const progEl   = document.getElementById('vote-progress');
+  if (progEl) progEl.textContent = `${voted.length}/${eligible.length} โหวตแล้ว`;
+
+  const contentEl = document.getElementById('vote-content');
+  if (!contentEl) return;
+  const isHunter = myUid === bust.hunterId;
+  const isTarget = myUid === bust.targetId;
+  const myVote   = voteState.votes?.[myUid];
+
+  if (isHunter || isTarget) {
+    contentEl.innerHTML = `<div class="vote-cast-info">${isHunter ? '🕵️ คุณคือนักล่า' : '🎯 คุณคือเหยื่อ'} — ไม่สามารถโหวตได้</div>`;
+  } else if (myVote) {
+    contentEl.innerHTML = `<div class="vote-cast-info">✅ โหวตแล้ว: ${myVote === 'guilty' ? '"พูดจริง" 🗣️' : '"ไม่ได้พูด" 🙅'}<br><span style="font-size:.8rem">รอผลโหวต...</span></div>`;
+  } else {
+    contentEl.innerHTML = `
+      <div style="font-size:.88rem;color:var(--muted);text-align:center;margin-bottom:12px">
+        คิดว่า ${target?.avatar} ${target?.name} พูดคำนั้นจริงๆ ไหม?
+      </div>
+      <div class="vote-btn-wrap">
+        <button class="btn btn-red" onclick="castVote('guilty')">🗣️ พูดจริง</button>
+        <button class="btn btn-green" onclick="castVote('innocent')">🙅 ไม่ได้พูด</button>
+      </div>
+    `;
+  }
+
+  if (voted.length === eligible.length && eligible.length > 0 && isHost && roomSnap.phase === 'voting') {
+    clearInterval(voteTimer);
+    setTimeout(tallyVotes, 800);
+  }
+}
+
+function startVoteTimer() {
+  clearInterval(voteTimer);
+  voteTimer = setInterval(() => {
+    const deadline = roomSnap?.voteState?.deadline;
+    if (!deadline) { clearInterval(voteTimer); return; }
+    const remaining = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
+    const countEl = document.getElementById('vote-countdown');
+    if (countEl) countEl.textContent = remaining;
+    if (remaining <= 0) {
+      clearInterval(voteTimer);
+      if (isHost && roomSnap?.phase === 'voting') tallyVotes();
+    }
+  }, 500);
+}
+
+async function castVote(verdict) {
+  const bust = roomSnap?.bustState;
+  if (!bust || myUid === bust.hunterId || myUid === bust.targetId) return;
+  if (roomSnap?.voteState?.votes?.[myUid]) return;
+  await roomRef.child(`voteState/votes/${myUid}`).set(verdict);
+}
+
+async function tallyVotes() {
+  if (!isHost || roomSnap?.phase !== 'voting') return;
+  const bust      = roomSnap.bustState;
+  const voteState = roomSnap.voteState;
+  if (!bust || !voteState) return;
+  const players  = roomSnap.players || {};
+  const eligible = Object.keys(players).filter(uid => uid !== bust.hunterId && uid !== bust.targetId);
+  const votes    = voteState.votes || {};
+  let guilty = 0, innocent = 0;
+  eligible.forEach(uid => {
+    if (votes[uid] === 'guilty') guilty++;
+    else if (votes[uid] === 'innocent') innocent++;
+  });
+  const verdict = guilty > innocent ? 'guilty' : 'innocent';
+  const rawScore = (players[bust.hunterId]?.score || 0) + (verdict === 'guilty' ? 1 : -1);
+  const hunterScore = Math.max(0, rawScore);
+  const won = verdict === 'guilty' && hunterScore >= roomSnap.scoreTarget;
+
+  const inc = firebase.database.ServerValue.increment;
+  const updates = {
+    phase: won ? 'ended' : 'vote-result',
+    bustState: null,
+    voteState: null,
+    voteResult: { verdict, guilty, innocent, hunterId: bust.hunterId, targetId: bust.targetId, word: bust.secretWord },
+    [`players/${bust.hunterId}/score`]: hunterScore,
+    [`stats/${bust.hunterId}/${verdict === 'guilty' ? 'busts' : 'falseBusts'}`]: inc(1),
+    [`stats/${bust.targetId}/${verdict === 'guilty' ? 'gotBusted' : 'survivedVote'}`]: inc(1),
+  };
+  if (verdict === 'guilty' && !roomSnap.firstBloodUid) updates.firstBloodUid = bust.hunterId;
+  if (won) updates.winner = bust.hunterId;
+  if (verdict === 'guilty') updates[`traps/${bust.hunterId}_${bust.targetId}/active`] = false;
+  // Track voter correctness
+  eligible.forEach(uid => {
+    const v = votes[uid];
+    if (v && v === verdict) updates[`stats/${uid}/correctVotes`] = inc(1);
+  });
+  await roomRef.update(updates);
+}
+
+// ── Vote Result ────────────────────────────────────────
+function renderVoteResult() {
+  const result  = roomSnap?.voteResult;
+  if (!result) return;
+  const players = roomSnap.players || {};
+  const hunter  = players[result.hunterId];
+  const target  = players[result.targetId];
+  const isGuilty = result.verdict === 'guilty';
+
+  const contentEl = document.getElementById('vote-result-content');
+  if (contentEl) contentEl.innerHTML = `
+    <div style="font-size:4rem">${isGuilty ? '😬' : '😤'}</div>
+    <div class="result-verdict ${isGuilty ? 'guilty' : 'innocent'}">${isGuilty ? '🗣️ พูดจริง!' : '🙅 ไม่ได้พูด!'}</div>
+    <div style="font-size:.85rem;color:var(--muted)">
+      คำ: <strong style="color:var(--red)">"${result.word}"</strong><br>
+      โหวต ${result.guilty} ต่อ ${result.innocent}
+    </div>
+    <div class="score-change">
+      ${isGuilty
+        ? `${hunter?.avatar} ${hunter?.name} ได้ <span style="color:var(--gold)">+1 แต้ม</span>`
+        : `${hunter?.avatar} ${hunter?.name} เสีย <span style="color:var(--red)">1 แต้ม</span>`}
+    </div>
+  `;
+  const actEl = document.getElementById('vote-result-actions');
+  if (actEl) actEl.innerHTML = isHost
+    ? '<button class="btn btn-green" onclick="continueGame()">▶ เล่นต่อ</button>'
+    : '<div class="vote-cast-info" style="margin-bottom:0">รอ Host กด "เล่นต่อ"...</div>';
+}
+
+async function continueGame() {
+  if (!isHost) return;
+  await roomRef.update({ voteResult: null, phase: 'active' });
+}
+
+// ── End Game + Achievements ────────────────────────────
+function topStat(stats, field, minVal) {
+  let topUid = null, topVal = minVal - 1;
+  Object.entries(stats || {}).forEach(([uid, s]) => {
+    const v = s[field] || 0;
+    if (v > topVal) { topVal = v; topUid = uid; }
+  });
+  return topUid;
+}
+
+function computeAchievements() {
+  const players = roomSnap?.players || {};
+  const stats   = roomSnap?.stats   || {};
+  const snap    = roomSnap;
+  const result  = {};
+  Object.keys(players).forEach(uid => result[uid] = []);
+  ACHIEVEMENTS.forEach(ach => {
+    Object.keys(players).forEach(uid => {
+      try {
+        if (ach.check(uid, stats, players, snap)) result[uid].push(ach);
+      } catch(e) {}
+    });
+  });
+  return result;
+}
+
+function renderEnd() {
+  const winner  = roomSnap?.winner;
+  const players = roomSnap?.players || {};
+  const stats   = roomSnap?.stats   || {};
+  const w       = players[winner];
+  const el      = document.getElementById('s-end');
+  if (!el) return;
+
+  const achievements = computeAchievements();
+  const sorted = Object.entries(players).sort(([,a],[,b]) => (b.score||0)-(a.score||0));
+  const medals = ['🥇','🥈','🥉'];
+
+  const rows = sorted.map(([uid, p], i) => {
+    const achs = achievements[uid] || [];
+    const achHtml = achs.map(a =>
+      `<span class="ach-pill ${a.color}">${a.icon} ${a.name}</span>`
+    ).join('');
+    const isWinner = uid === winner;
+    const s = stats[uid] || {};
+    const statLine = [
+      s.busts      > 0 ? `จับ ${s.busts}` : '',
+      s.gotBusted  > 0 ? `โดนจับ ${s.gotBusted}` : '',
+      s.falseBusts > 0 ? `จับผิด ${s.falseBusts}` : '',
+      s.survivedVote > 0 ? `รอด ${s.survivedVote}` : '',
+    ].filter(Boolean).join(' · ');
+    return `
+      <div class="end-rank-row ${isWinner ? 'winner-row' : ''}">
+        <div class="rank-medal">${medals[i] || `${i+1}`}</div>
+        <div style="width:40px;height:40px;border-radius:10px;background:${p.avatarBg};
+             display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0">${p.avatar}</div>
+        <div class="end-player-info">
+          <div class="end-player-name">${p.name}${uid===myUid?' <span class="me-tag">(คุณ)</span>':''}</div>
+          ${statLine ? `<div style="font-size:.73rem;color:var(--muted);margin-bottom:4px">${statLine}</div>` : ''}
+          <div class="achievement-wrap">
+            ${achHtml || '<span style="font-size:.73rem;color:var(--muted)">ไม่มีรางวัล</span>'}
+          </div>
+        </div>
+        <div class="end-score-num" style="${isWinner ? 'color:var(--gold)' : ''}">${p.score||0}</div>
+      </div>
+    `;
+  }).join('');
+
+  const penalty    = roomSnap?.penalty;
+  const iAmLoser   = winner !== myUid;
+  const penaltyBox = penalty ? `
+    <div class="end-penalty-box">
+      <div class="end-penalty-label">${iAmLoser ? '😱 โทษของคุณ' : '🎉 โทษผู้แพ้'}</div>
+      <div class="end-penalty-text">💀 ${penalty}</div>
+    </div>
+  ` : '';
+
+  el.innerHTML = `
+    <div class="end-winner-banner">
+      <div style="font-size:4.5rem;margin-bottom:8px">${w?.avatar || '🏆'}</div>
+      <div class="screen-title" style="font-size:1.6rem">🎉 จบเกม!</div>
+      <div class="end-winner-name">${w?.name || '?'} ชนะ!</div>
+      <div style="color:var(--muted);font-size:.82rem;margin-top:4px">ถึง ${roomSnap?.scoreTarget} แต้มก่อนใคร</div>
+    </div>
+    ${penaltyBox}
+    <div class="section-label">ตารางคะแนนและรางวัล</div>
+    <div style="margin-bottom:20px">${rows}</div>
+    <div class="btn-stack">
+      <button class="btn btn-purple" onclick="leaveRoom()">🏠 กลับหน้าแรก</button>
+    </div>
+  `;
+}
+
+// ── Leave room ────────────────────────────────────────
+function leaveRoom() {
+  if (!roomRef) { showScreen('s-home'); return; }
+  roomRef.child(`players/${myUid}/online`).set(false).then(doLeave);
+}
+
+function doLeave() {
+  if (roomRef) roomRef.off();
+  roomRef = null; roomId = null; isHost = false; roomSnap = null;
+  clearInterval(privacyTimer);
+  clearInterval(voteTimer);
+  clearTimeout(penaltyTimer);
+  showScreen('s-home');
+}
+</script>
