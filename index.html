@@ -966,6 +966,11 @@ function listenRoom() {
     if (activeId === 's-vote-result') renderVoteResult();
     if (activeId === 's-bust-confirm' && myUid === roomSnap?.bustState?.targetId) renderBustReceived();
     if (!prev || prev.phase !== roomSnap.phase) handlePhase(roomSnap.phase);
+    // Safety net: victim stuck — bust phase active but not on correct screen
+    if (roomSnap.phase === 'busted' && roomSnap.bustState?.targetId === myUid) {
+      const cur = document.querySelector('.screen.active')?.id;
+      if (cur !== 's-bust-confirm') { renderBustReceived(); showScreen('s-bust-confirm'); }
+    }
   });
 }
 
@@ -1264,11 +1269,23 @@ function renderGame() {
       const isHunter = myUid === bust.hunterId;
       overlayEl.innerHTML = `
         <div class="bust-watch-box">
-          <div class="bust-watch-title">${isHunter ? '⏳ รอเหยื่อตัดสินใจ...' : '🚨 กำลังจับ!'}</div>
-          <div style="font-size:.85rem;color:var(--muted);margin-top:4px">
-            ${hunter?.avatar} ${hunter?.name} → ${target?.avatar} ${target?.name}
-          </div>
-          <div class="bust-word-display" style="font-size:1.5rem;margin:8px 0">"${bust.secretWord}"</div>
+          <div class="bust-watch-title">${isHunter ? '🎯 คุณแจ้งจับ...' : '🚨 กำลังจับ!'}</div>
+          ${isHunter ? `
+            <div style="display:flex;align-items:center;justify-content:center;gap:10px;margin:10px 0">
+              <div style="width:44px;height:44px;border-radius:12px;background:${target?.avatarBg||'#222'};display:flex;align-items:center;justify-content:center;font-size:1.4rem">${target?.avatar||'?'}</div>
+              <div style="text-align:left">
+                <div style="font-family:'Kanit',sans-serif;font-weight:700;font-size:1rem">${target?.name||'?'}</div>
+                <div style="font-size:.8rem;color:var(--muted)">เหยื่อของคุณ</div>
+              </div>
+            </div>
+            <div style="font-size:.82rem;color:var(--muted)">คำ: <span style="color:var(--red);font-weight:700">"${bust.secretWord}"</span></div>
+            <div style="font-size:.78rem;color:var(--muted);margin-top:6px">รอเหยื่อตัดสินใจ...</div>
+          ` : `
+            <div style="font-size:.85rem;color:var(--muted);margin-top:4px">
+              ${hunter?.avatar} ${hunter?.name} → ${target?.avatar} ${target?.name}
+            </div>
+            <div style="font-size:.82rem;color:var(--red);font-weight:600;margin-top:4px">"${bust.secretWord}"</div>
+          `}
         </div>
       `;
     } else { overlayEl.hidden = true; }
@@ -1353,7 +1370,11 @@ async function submitBust(targetId, secretWord) {
     if (!room || room.phase !== 'active') return;
     return { ...room, phase: 'busted', bustState: { hunterId: myUid, targetId, secretWord, status: 'pending' } };
   });
-  if (!committed) { toast('มีการจับเกิดขึ้นแล้ว!'); showScreen('s-game'); }
+  if (!committed) { toast('มีการจับเกิดขึ้นแล้ว!'); showScreen('s-game'); return; }
+  // Optimistically update local state so game overlay shows immediately
+  if (roomSnap) roomSnap = { ...roomSnap, phase: 'busted', bustState: { hunterId: myUid, targetId, secretWord, status: 'pending' } };
+  renderGame();
+  showScreen('s-game');
 }
 
 // ── Bust Flow (Target) ────────────────────────────────
