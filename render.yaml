@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: trap-word
+    env: static
+    staticPublishPath: .
+    headers:
+      - path: /index.html
+        name: Cache-Control
+        value: no-cache, no-store, must-revalidate
