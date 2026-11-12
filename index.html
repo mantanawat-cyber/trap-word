@@ -1527,6 +1527,32 @@ async function tallyVotes() {
 }
 
 // ── Vote Result ────────────────────────────────────────
+const GUILTY_MSGS = [
+  'ปากเบาแล้วก็โดน! 🤣',
+  'คิดว่าไม่มีใครรู้งั้นสินะ 😏',
+  'กับดักนี้แน่นมากจริงๆ 🪤',
+  'ระวังปากด้วยนะครั้งหน้า 🫵',
+  'โดนเข้าให้เต็มๆ เลย 💥',
+  'เพื่อนหลอกเก่งสุด 555',
+  'โอ้โห... พูดได้ไงเนี่ย 🤦',
+  'หนีไม่พ้น! กับดักนี้แสบมาก 🎯',
+  'โดนแบบไม่ทันตั้งตัวเลย 😂',
+  'ระวังปากแต่ปากไม่ระวัง 🫢',
+];
+
+const INNOCENT_MSGS = [
+  'โป๊ะแตกซะงั้น 🤡',
+  'จับผิดคน... ไปคิดมาใหม่นะ',
+  'ครั้งหน้าฟังดีๆก่อนนะ 👂',
+  'เรดาร์ผิดพลาด ซ่อมด่วน 🔧',
+  'ไม่ใช่สายสืบจริงๆ เลย 555',
+  'แค่เดา แล้วก็เดาผิด 🙈',
+  'เสียแต้มฟรีๆ เลย อย่าทำอีกนะ',
+  'คิดมากไปเองเลยนะ 🫠',
+  'โดนหลอกให้จับ แล้วก็เสียเอง 😅',
+  'ระวังด้วย ครั้งหน้าอย่าเดามั่ว!',
+];
+
 function renderVoteResult() {
   const result  = roomSnap?.voteResult;
   if (!result) return;
@@ -1535,10 +1561,14 @@ function renderVoteResult() {
   const target  = players[result.targetId];
   const isGuilty = result.verdict === 'guilty';
 
+  const msgs   = isGuilty ? GUILTY_MSGS : INNOCENT_MSGS;
+  const funnyLine = msgs[Math.floor(Math.random() * msgs.length)];
+
   const contentEl = document.getElementById('vote-result-content');
   if (contentEl) contentEl.innerHTML = `
     <div style="font-size:4rem">${isGuilty ? '😬' : '😤'}</div>
     <div class="result-verdict ${isGuilty ? 'guilty' : 'innocent'}">${isGuilty ? '🗣️ พูดจริง!' : '🙅 ไม่ได้พูด!'}</div>
+    <div style="background:var(--surf2);border:1px solid var(--border);border-radius:14px;padding:10px 16px;font-size:.92rem;color:var(--text);font-style:italic">"${funnyLine}"</div>
     <div style="font-size:.85rem;color:var(--muted)">
       คำ: <strong style="color:var(--red)">"${result.word}"</strong><br>
       โหวต ${result.guilty} ต่อ ${result.innocent}
