@@ -697,7 +697,43 @@ if (isPlaceholder) {
   `);
 } else {
   auth.signInAnonymously()
-    .then(c => { myUid = c.user.uid; buildAvatarGrid(); showScreen('s-home'); })
+    .then(async c => {
+      myUid = c.user.uid;
+      buildAvatarGrid();
+
+      // ── ลอง reconnect ห้องเดิม ──────────────────────
+      let reconnected = false;
+      try {
+        const savedRoom   = localStorage.getItem('tw_room');
+        const savedName   = localStorage.getItem('tw_name');
+        const savedAvatar = localStorage.getItem('tw_avatar');
+        const savedAvBg   = localStorage.getItem('tw_avbg');
+        if (savedRoom && savedName) {
+          const snap = await db.ref(`rooms/${savedRoom}`).get();
+          if (snap.exists()) {
+            const d = snap.val();
+            const inRoom = d.players?.[myUid];
+            const phase  = d.phase;
+            if (inRoom && phase !== 'ended') {
+              // กู้คืน local state
+              myName     = savedName;
+              myAvatar   = savedAvatar || myAvatar;
+              myAvatarBg = savedAvBg   || myAvatarBg;
+              roomId     = savedRoom;
+              isHost     = d.host === myUid;
+              roomRef    = db.ref(`rooms/${savedRoom}`);
+              // mark online again
+              await roomRef.child(`players/${myUid}/online`).set(true);
+              setupPresence();
+              listenRoom();
+              reconnected = true;
+            }
+          }
+        }
+      } catch(e) {}
+
+      if (!reconnected) showScreen('s-home');
+    })
     .catch(e => showLoadingError(`
       ❌ <strong>เชื่อมต่อ Firebase ไม่ได้</strong><br><br>
       ${e.message || 'Unknown error'}<br><br>
@@ -848,7 +884,21 @@ function setupPresence() {
 }
 
 // ── Listen to room ────────────────────────────────────
+function saveSession() {
+  try {
+    localStorage.setItem('tw_room',   roomId);
+    localStorage.setItem('tw_name',   myName);
+    localStorage.setItem('tw_avatar', myAvatar);
+    localStorage.setItem('tw_avbg',   myAvatarBg);
+  } catch(e) {}
+}
+
+function clearSession() {
+  try { localStorage.removeItem('tw_room'); } catch(e) {}
+}
+
 function listenRoom() {
+  saveSession();
   roomRef.on('value', snap => {
     if (!snap.exists()) { toast('ห้องถูกปิดแล้ว'); doLeave(); return; }
     const prev = roomSnap;
@@ -1561,6 +1611,7 @@ function doLeave() {
   clearInterval(privacyTimer);
   clearInterval(voteTimer);
   clearTimeout(penaltyTimer);
+  clearSession();
   showScreen('s-home');
 }
 </script>
