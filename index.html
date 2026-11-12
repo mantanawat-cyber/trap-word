@@ -425,7 +425,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
       <button class="btn btn-red" onclick="goCreate()">🏠 สร้างห้องใหม่</button>
       <button class="btn btn-ghost" onclick="goJoin()">🔑 เข้าร่วมด้วย Room Code</button>
     </div>
-    <div style="text-align:center;margin-top:20px;font-size:.72rem;color:var(--muted);letter-spacing:.04em">v1.4.7</div>
+    <div style="text-align:center;margin-top:20px;font-size:.72rem;color:var(--muted);letter-spacing:.04em">v1.4.8</div>
   </div>
 
   <!-- JOIN (enter code) -->
@@ -902,7 +902,7 @@ async function createRoom() {
   roomRef = db.ref(`rooms/${roomId}`);
 
   await roomRef.set({
-    host: myUid, phase: 'lobby', scoreTarget,
+    host: myUid, phase: 'lobby', scoreTarget, baseScoreTarget: scoreTarget,
     createdAt: firebase.database.ServerValue.TIMESTAMP,
     players: { [myUid]: playerObj() }
   });
@@ -1012,6 +1012,7 @@ function renderLobby() {
     const isCap = uid === roomSnap.host;
     const card  = document.createElement('div');
     card.className = 'player-card' + (p.online ? '' : ' offline');
+    const scoreTag = (p.score > 0) ? `<span class="pbadge" style="background:rgba(255,199,68,.15);border-color:rgba(255,199,68,.3);color:var(--gold)">${p.score} แต้ม</span>` : '';
     card.innerHTML = `
       <div class="player-av" style="background:${p.avatarBg}">${p.avatar}</div>
       <div>
@@ -1019,7 +1020,7 @@ function renderLobby() {
         <div class="player-sub">${isCap ? 'Host' : (p.online ? 'ออนไลน์' : 'ออฟไลน์')}</div>
       </div>
       <div class="player-dot" style="background:${p.online?'var(--green)':'var(--muted)'}"></div>
-      <span class="pbadge ${isCap?'host':'ready'}">${isCap?'Host':'พร้อม'}</span>
+      ${scoreTag || `<span class="pbadge ${isCap?'host':'ready'}">${isCap?'Host':'พร้อม'}</span>`}
     `;
     list.appendChild(card);
   });
@@ -1028,12 +1029,25 @@ function renderLobby() {
   const hint       = document.getElementById('lobby-hint');
   const penaltyRow = document.getElementById('penalty-row');
   const penaltyInp = document.getElementById('penalty-input');
+  const scoreRow   = document.getElementById('score-row');
+  const isNextRound = (roomSnap.baseScoreTarget && roomSnap.scoreTarget !== roomSnap.baseScoreTarget);
+  if (scoreRow) {
+    if (isNextRound) {
+      const roundNum = Math.round(roomSnap.scoreTarget / (roomSnap.baseScoreTarget || roomSnap.scoreTarget));
+      scoreRow.innerHTML = `<label>เป้าหมาย</label><div style="font-family:'Kanit',sans-serif;font-weight:700;font-size:1rem;color:var(--gold)">${roomSnap.scoreTarget} แต้ม <span style="font-size:.72rem;color:var(--muted);font-weight:400">(รอบ ${roundNum} · สะสม)</span></div>`;
+    } else {
+      document.querySelectorAll('.score-opt').forEach(el => {
+        el.classList.toggle('sel', parseInt(el.textContent) === roomSnap.scoreTarget);
+      });
+    }
+  }
   if (isHost) {
     startBtn.hidden   = false;
     startBtn.disabled = uids.length < 2;
     startBtn.textContent = uids.length < 2 ? `รอเพื่อนอีก ${2-uids.length} คน...` : '▶ เริ่มเกม';
     hint.textContent  = uids.length < 2 ? 'ต้องการผู้เล่นอย่างน้อย 2 คน' : '';
     penaltyRow.hidden = false;
+    if (scoreRow && isNextRound) penaltyRow.hidden = false;
     if (document.activeElement !== penaltyInp) penaltyInp.value = roomSnap.penalty || '';
   } else {
     startBtn.hidden   = true;
@@ -1055,7 +1069,7 @@ async function startGame() {
   if (roomSnap?.host !== myUid) return;
   const players = roomSnap.players || {};
   if (Object.keys(players).length < 2) { toast('ต้องการผู้เล่นอย่างน้อย 2 คน'); return; }
-  const updates = { phase: 'trap-setup', traps: null, bustState: null, voteState: null, voteResult: null };
+  const updates = { phase: 'trap-setup', traps: null, bustState: null, voteState: null, voteResult: null, winner: null, firstBloodUid: null };
   Object.keys(players).forEach(uid => { updates[`players/${uid}/trapReady`] = false; });
   await roomRef.update(updates);
 }
@@ -1799,9 +1813,25 @@ function renderEnd() {
     <div class="section-label">ตารางคะแนนและรางวัล</div>
     <div style="margin-bottom:20px">${rows}</div>
     <div class="btn-stack">
-      <button class="btn btn-purple" onclick="leaveRoom()">🏠 กลับหน้าแรก</button>
+      ${isHost ? '<button class="btn btn-green" onclick="nextRound()">▶ เล่นรอบต่อไป (คะแนนสะสม)</button>' : '<div class="vote-cast-info" style="margin-bottom:0">รอ Host เลือกดำเนินการ...</div>'}
+      <button class="btn btn-ghost" onclick="leaveRoom()">🏠 กลับหน้าแรก</button>
     </div>
   `;
+}
+
+// ── Next round (cumulative scores) ───────────────────
+async function nextRound() {
+  if (roomSnap?.host !== myUid) return;
+  const base = roomSnap.baseScoreTarget || roomSnap.scoreTarget;
+  const nextTarget = roomSnap.scoreTarget + base;
+  const players = roomSnap.players || {};
+  const updates = {
+    phase: 'lobby', winner: null, firstBloodUid: null,
+    traps: null, bustState: null, voteState: null, voteResult: null,
+    scoreTarget: nextTarget, stats: null
+  };
+  Object.keys(players).forEach(uid => { updates[`players/${uid}/trapReady`] = false; });
+  await roomRef.update(updates);
 }
 
 // ── Leave room ────────────────────────────────────────
