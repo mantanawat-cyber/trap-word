@@ -1444,7 +1444,12 @@ function renderBustHunterWait() {
 async function cancelBust() {
   const bust = roomSnap?.bustState;
   if (!bust || bust.hunterId !== myUid) return;
-  await roomRef.update({ bustState: null, phase: 'active' });
+  // Trap is deactivated — victim already saw the word
+  await roomRef.update({
+    bustState: null,
+    phase: 'active',
+    [`traps/${bust.hunterId}_${bust.targetId}/active`]: false,
+  });
 }
 
 async function respondToBust(type) {
