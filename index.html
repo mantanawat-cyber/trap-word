@@ -425,7 +425,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
       <button class="btn btn-red" onclick="goCreate()">🏠 สร้างห้องใหม่</button>
       <button class="btn btn-ghost" onclick="goJoin()">🔑 เข้าร่วมด้วย Room Code</button>
     </div>
-    <div style="text-align:center;margin-top:20px;font-size:.72rem;color:var(--muted);letter-spacing:.04em">v1.4.5</div>
+    <div style="text-align:center;margin-top:20px;font-size:.72rem;color:var(--muted);letter-spacing:.04em">v1.4.6</div>
   </div>
 
   <!-- JOIN (enter code) -->
@@ -546,11 +546,10 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
     <div class="screen-desc">เกมจะเริ่มอัตโนมัติเมื่อทุกคนพร้อม</div>
     <div class="wait-counter" id="wait-counter">0/0 พร้อมแล้ว</div>
     <div id="trap-wait-list"></div>
-    <div class="btn-stack" id="force-start-wrap" hidden>
-      <button class="btn btn-green" onclick="forceStartActive()">▶ เริ่มเกมเลย (Host)</button>
-      <button class="btn btn-ghost" onclick="leaveRoom()">ออกจากห้อง</button>
-    </div>
-    <div class="btn-stack" id="force-start-nonhost" hidden>
+    <div class="btn-stack">
+      <div id="force-start-wrap" hidden>
+        <button class="btn btn-green" onclick="forceStartActive()">▶ เริ่มเกมเลย (Host)</button>
+      </div>
       <button class="btn btn-ghost" onclick="leaveRoom()">ออกจากห้อง</button>
     </div>
   </div>
@@ -1247,8 +1246,7 @@ function renderTrapWait() {
     listEl.appendChild(row);
   });
 
-  document.getElementById('force-start-wrap').hidden    = !isHost;
-  document.getElementById('force-start-nonhost').hidden = isHost;
+  document.getElementById('force-start-wrap').hidden = !isHost;
 
   if (readyCnt === uids.length && uids.length >= 2 && isHost) {
     roomRef.child('phase').set('active');
