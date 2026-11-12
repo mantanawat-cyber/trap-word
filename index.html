@@ -1463,15 +1463,11 @@ async function respondToBust(type) {
   } else {
     const eligible = Object.keys(players).filter(uid => uid !== bust.hunterId && uid !== bust.targetId);
     if (eligible.length === 0) {
-      // 2-player: no one to vote — hunter loses point (ตัดสินไม่ได้ = ไม่ผิด)
-      const rawScore = (players[bust.hunterId]?.score || 0) - 1;
+      // 2-player: no one to vote — neutral (no score change, trap stays active)
       await roomRef.update({
         bustState: null,
-        [`players/${bust.hunterId}/score`]: Math.max(rawScore, 0),
-        [`stats/${bust.hunterId}/falseBusts`]: firebase.database.ServerValue.increment(1),
-        [`stats/${bust.targetId}/survivedVote`]: firebase.database.ServerValue.increment(1),
         phase: 'vote-result',
-        voteResult: { verdict: 'innocent', guilty: 0, innocent: 0, noVoters: true,
+        voteResult: { verdict: 'no_voters', guilty: 0, innocent: 0, noVoters: true,
                       hunterId: bust.hunterId, targetId: bust.targetId, word: bust.secretWord },
       });
       return;
@@ -1638,26 +1634,40 @@ function renderVoteResult() {
   const players = roomSnap.players || {};
   const hunter  = players[result.hunterId];
   const target  = players[result.targetId];
-  const isGuilty = result.verdict === 'guilty';
-
-  const msgs   = isGuilty ? GUILTY_MSGS : INNOCENT_MSGS;
-  const funnyLine = msgs[Math.floor(Math.random() * msgs.length)];
+  const isNoVoters = result.verdict === 'no_voters';
+  const isGuilty   = result.verdict === 'guilty';
 
   const contentEl = document.getElementById('vote-result-content');
-  if (contentEl) contentEl.innerHTML = `
-    <div style="font-size:4rem">${isGuilty ? '😬' : '😤'}</div>
-    <div class="result-verdict ${isGuilty ? 'guilty' : 'innocent'}">${isGuilty ? '🗣️ พูดจริง!' : '🙅 ไม่ได้พูด!'}</div>
-    <div style="background:var(--surf2);border:1px solid var(--border);border-radius:14px;padding:10px 16px;font-size:.92rem;color:var(--text);font-style:italic">"${funnyLine}"</div>
-    <div style="font-size:.85rem;color:var(--muted)">
-      คำ: <strong style="color:var(--red)">"${result.word}"</strong><br>
-      ${result.accepted ? '😔 ยอมรับเอง ไม่ผ่านโหวต' : result.noVoters ? '🤷 ไม่มีคนโหวต — ตัดสินไม่ได้' : `โหวต ${result.guilty} ต่อ ${result.innocent}`}
-    </div>
-    <div class="score-change">
-      ${isGuilty
-        ? `${hunter?.avatar} ${hunter?.name} ได้ <span style="color:var(--gold)">+1 แต้ม</span>`
-        : `${hunter?.avatar} ${hunter?.name} เสีย <span style="color:var(--red)">1 แต้ม</span>`}
-    </div>
-  `;
+  if (contentEl) {
+    if (isNoVoters) {
+      contentEl.innerHTML = `
+        <div style="font-size:4rem">🤷</div>
+        <div class="result-verdict" style="color:var(--muted)">ตัดสินไม่ได้!</div>
+        <div style="background:var(--surf2);border:1px solid var(--border);border-radius:14px;padding:10px 16px;font-size:.92rem;color:var(--text);font-style:italic">"เล่น 2 คน ไม่มีพยาน ไม่มีแต้ม ลองใหม่ได้เลย 😅"</div>
+        <div style="font-size:.85rem;color:var(--muted)">
+          คำ: <strong style="color:var(--red)">"${result.word}"</strong><br>
+          🤷 ไม่มีคนโหวต — ไม่เปลี่ยนแต้ม
+        </div>
+      `;
+    } else {
+      const msgs = isGuilty ? GUILTY_MSGS : INNOCENT_MSGS;
+      const funnyLine = msgs[Math.floor(Math.random() * msgs.length)];
+      contentEl.innerHTML = `
+        <div style="font-size:4rem">${isGuilty ? '😬' : '😤'}</div>
+        <div class="result-verdict ${isGuilty ? 'guilty' : 'innocent'}">${isGuilty ? '🗣️ พูดจริง!' : '🙅 ไม่ได้พูด!'}</div>
+        <div style="background:var(--surf2);border:1px solid var(--border);border-radius:14px;padding:10px 16px;font-size:.92rem;color:var(--text);font-style:italic">"${funnyLine}"</div>
+        <div style="font-size:.85rem;color:var(--muted)">
+          คำ: <strong style="color:var(--red)">"${result.word}"</strong><br>
+          ${result.accepted ? '😔 ยอมรับเอง ไม่ผ่านโหวต' : `โหวต ${result.guilty} ต่อ ${result.innocent}`}
+        </div>
+        <div class="score-change">
+          ${isGuilty
+            ? `${hunter?.avatar} ${hunter?.name} ได้ <span style="color:var(--gold)">+1 แต้ม</span>`
+            : `${hunter?.avatar} ${hunter?.name} เสีย <span style="color:var(--red)">1 แต้ม</span>`}
+        </div>
+      `;
+    }
+  }
   const actEl = document.getElementById('vote-result-actions');
   if (actEl) actEl.innerHTML = isHost
     ? '<button class="btn btn-green" onclick="continueGame()">▶ เล่นต่อ</button>'
