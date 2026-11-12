@@ -1445,6 +1445,7 @@ async function respondToBust(type) {
 
   if (type === 'accept') {
     const hunterScore = (players[bust.hunterId]?.score || 0) + 1;
+    const won = hunterScore >= roomSnap.scoreTarget;
     const updates = {
       bustState: null,
       [`players/${bust.hunterId}/score`]: hunterScore,
@@ -1452,10 +1453,12 @@ async function respondToBust(type) {
       [`stats/${bust.hunterId}/busts`]: firebase.database.ServerValue.increment(1),
       [`stats/${bust.targetId}/gotBusted`]: firebase.database.ServerValue.increment(1),
       [`stats/${bust.targetId}/accepted`]: firebase.database.ServerValue.increment(1),
+      voteResult: { verdict: 'guilty', guilty: 1, innocent: 0, accepted: true,
+                    hunterId: bust.hunterId, targetId: bust.targetId, word: bust.secretWord },
     };
     if (!roomSnap.firstBloodUid) updates.firstBloodUid = bust.hunterId;
-    updates.phase = hunterScore >= roomSnap.scoreTarget ? 'ended' : 'active';
-    if (hunterScore >= roomSnap.scoreTarget) updates.winner = bust.hunterId;
+    updates.phase = won ? 'ended' : 'vote-result';
+    if (won) updates.winner = bust.hunterId;
     await roomRef.update(updates);
   } else {
     await roomRef.update({
@@ -1632,7 +1635,7 @@ function renderVoteResult() {
     <div style="background:var(--surf2);border:1px solid var(--border);border-radius:14px;padding:10px 16px;font-size:.92rem;color:var(--text);font-style:italic">"${funnyLine}"</div>
     <div style="font-size:.85rem;color:var(--muted)">
       คำ: <strong style="color:var(--red)">"${result.word}"</strong><br>
-      โหวต ${result.guilty} ต่อ ${result.innocent}
+      ${result.accepted ? '😔 ยอมรับเอง ไม่ผ่านโหวต' : `โหวต ${result.guilty} ต่อ ${result.innocent}`}
     </div>
     <div class="score-change">
       ${isGuilty
