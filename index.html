@@ -425,7 +425,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
       <button class="btn btn-red" onclick="goCreate()">🏠 สร้างห้องใหม่</button>
       <button class="btn btn-ghost" onclick="goJoin()">🔑 เข้าร่วมด้วย Room Code</button>
     </div>
-    <div style="text-align:center;margin-top:20px;font-size:.72rem;color:var(--muted);letter-spacing:.04em">v1.4.3</div>
+    <div style="text-align:center;margin-top:20px;font-size:.72rem;color:var(--muted);letter-spacing:.04em">v1.4.4</div>
   </div>
 
   <!-- JOIN (enter code) -->
@@ -682,8 +682,10 @@ let trapIdx     = 0;
 let trapWords   = {};
 
 // ── Active Game State ─────────────────────────────────
-let voteTimer    = null;
-let penaltyTimer = null;
+let voteTimer          = null;
+let penaltyTimer       = null;
+let tallyPending       = false;
+let bustResponseSent   = false;
 
 const AVATARS = [
   {e:'🦊',bg:'#2a1f3d'},{e:'🐺',bg:'#1f1f2d'},{e:'🦁',bg:'#2d2a1a'},
@@ -1058,6 +1060,8 @@ async function startGame() {
 
 // ── Handle phase changes ──────────────────────────────
 function handlePhase(phase) {
+  if (phase !== 'busted') bustResponseSent = false;
+  if (phase !== 'voting') tallyPending = false;
   if (phase === 'lobby') {
     showLobby(); return;
   }
@@ -1456,8 +1460,10 @@ async function cancelBust() {
 }
 
 async function respondToBust(type) {
+  if (bustResponseSent) return;
+  bustResponseSent = true;
   const bust = roomSnap?.bustState;
-  if (!bust) return;
+  if (!bust) { bustResponseSent = false; return; }
   const players = roomSnap.players || {};
 
   if (type === 'accept') {
@@ -1549,7 +1555,8 @@ function renderVote() {
     `;
   }
 
-  if (voted.length === eligible.length && eligible.length > 0 && isHost && roomSnap.phase === 'voting') {
+  if (voted.length === eligible.length && eligible.length > 0 && isHost && roomSnap.phase === 'voting' && !tallyPending) {
+    tallyPending = true;
     clearInterval(voteTimer);
     setTimeout(tallyVotes, 800);
   }
@@ -1565,7 +1572,10 @@ function startVoteTimer() {
     if (countEl) countEl.textContent = remaining;
     if (remaining <= 0) {
       clearInterval(voteTimer);
-      if (isHost && roomSnap?.phase === 'voting') tallyVotes();
+      if (isHost && roomSnap?.phase === 'voting' && !tallyPending) {
+        tallyPending = true;
+        tallyVotes();
+      }
     }
   }, 500);
 }
@@ -1680,7 +1690,9 @@ function renderVoteResult() {
         <div class="score-change">
           ${isGuilty
             ? `${hunter?.avatar} ${hunter?.name} ได้ <span style="color:var(--gold)">+1 แต้ม</span>`
-            : `${hunter?.avatar} ${hunter?.name} เสีย <span style="color:var(--red)">1 แต้ม</span>`}
+            : (players[result.hunterId]?.score ?? 0) > 0
+              ? `${hunter?.avatar} ${hunter?.name} เสีย <span style="color:var(--red)">1 แต้ม</span>`
+              : `${hunter?.avatar} ${hunter?.name} <span style="color:var(--muted)">แต้มอยู่ที่ 0 แล้ว</span>`}
         </div>
       `;
     }
