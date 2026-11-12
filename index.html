@@ -1435,7 +1435,16 @@ function renderBustHunterWait() {
       <div style="font-size:1.4rem;margin-bottom:4px">⏳</div>
       <div style="font-size:.88rem;color:var(--muted)">กำลังรอ <strong style="color:var(--text)">${target?.name||'เหยื่อ'}</strong> ตอบกลับ</div>
     </div>
+    <div class="btn-stack" style="margin-top:16px">
+      <button class="btn btn-ghost" style="font-size:.88rem;padding:12px" onclick="cancelBust()">↩ ถอนการแจ้งจับ</button>
+    </div>
   `;
+}
+
+async function cancelBust() {
+  const bust = roomSnap?.bustState;
+  if (!bust || bust.hunterId !== myUid) return;
+  await roomRef.update({ bustState: null, phase: 'active' });
 }
 
 async function respondToBust(type) {
