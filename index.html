@@ -964,12 +964,18 @@ function listenRoom() {
     if (activeId === 's-game')        renderGame();
     if (activeId === 's-vote')        renderVote();
     if (activeId === 's-vote-result') renderVoteResult();
-    if (activeId === 's-bust-confirm' && myUid === roomSnap?.bustState?.targetId) renderBustReceived();
+    if (activeId === 's-bust-confirm') {
+      if (myUid === roomSnap?.bustState?.targetId)  renderBustReceived();
+      else if (myUid === roomSnap?.bustState?.hunterId) renderBustHunterWait();
+    }
     if (!prev || prev.phase !== roomSnap.phase) handlePhase(roomSnap.phase);
-    // Safety net: victim stuck — bust phase active but not on correct screen
-    if (roomSnap.phase === 'busted' && roomSnap.bustState?.targetId === myUid) {
+    // Safety net: anyone in bust phase but on wrong screen
+    if (roomSnap.phase === 'busted' && roomSnap.bustState) {
       const cur = document.querySelector('.screen.active')?.id;
-      if (cur !== 's-bust-confirm') { renderBustReceived(); showScreen('s-bust-confirm'); }
+      if (cur !== 's-bust-confirm') {
+        if (myUid === roomSnap.bustState.targetId)  { renderBustReceived();     showScreen('s-bust-confirm'); }
+        else if (myUid === roomSnap.bustState.hunterId) { renderBustHunterWait(); showScreen('s-bust-confirm'); }
+      }
     }
   });
 }
@@ -1063,7 +1069,8 @@ function handlePhase(phase) {
   if (phase === 'busted') {
     const bust = roomSnap?.bustState;
     if (!bust) return;
-    if (myUid === bust.targetId) { renderBustReceived(); showScreen('s-bust-confirm'); }
+    if (myUid === bust.targetId)   { renderBustReceived();     showScreen('s-bust-confirm'); }
+    else if (myUid === bust.hunterId) { renderBustHunterWait(); showScreen('s-bust-confirm'); }
     else { renderGame(); showScreen('s-game'); }
     return;
   }
@@ -1371,10 +1378,10 @@ async function submitBust(targetId, secretWord) {
     return { ...room, phase: 'busted', bustState: { hunterId: myUid, targetId, secretWord, status: 'pending' } };
   });
   if (!committed) { toast('มีการจับเกิดขึ้นแล้ว!'); showScreen('s-game'); return; }
-  // Optimistically update local state so game overlay shows immediately
+  // Optimistically update local state so bust-confirm shows immediately
   if (roomSnap) roomSnap = { ...roomSnap, phase: 'busted', bustState: { hunterId: myUid, targetId, secretWord, status: 'pending' } };
-  renderGame();
-  showScreen('s-game');
+  renderBustHunterWait();
+  showScreen('s-bust-confirm');
 }
 
 // ── Bust Flow (Target) ────────────────────────────────
@@ -1396,6 +1403,36 @@ function renderBustReceived() {
               padding:15px;border-radius:14px;cursor:pointer;transition:transform .12s,opacity .12s;width:100%"
               onclick="respondToBust('reject')">✊ ปฏิเสธ — ไม่ได้พูด! (โหวต)</button>
       <button class="btn btn-red" onclick="respondToBust('accept')">😔 ยอมรับ — พูดจริง</button>
+    </div>
+  `;
+}
+
+function renderBustHunterWait() {
+  const bust = roomSnap?.bustState;
+  if (!bust) return;
+  const players = roomSnap?.players || {};
+  const target = players[bust.targetId];
+  document.getElementById('bust-confirm-content').innerHTML = `
+    <div style="text-align:center;padding:16px 0 8px">
+      <div style="font-size:3rem;margin-bottom:8px">🎯</div>
+      <div class="screen-title">แจ้งจับแล้ว!</div>
+      <div class="screen-desc">รอเหยื่อตัดสินใจ...</div>
+    </div>
+    <div class="bust-accuse-card" style="text-align:center">
+      <div style="font-size:.78rem;color:var(--muted);margin-bottom:10px;text-transform:uppercase;letter-spacing:.06em">คุณกำลังจับ</div>
+      <div style="display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:12px">
+        <div style="width:52px;height:52px;border-radius:14px;background:${target?.avatarBg||'#222'};display:flex;align-items:center;justify-content:center;font-size:1.6rem">${target?.avatar||'?'}</div>
+        <div style="text-align:left">
+          <div style="font-family:'Kanit',sans-serif;font-weight:700;font-size:1.1rem">${target?.name||'?'}</div>
+          <div style="font-size:.8rem;color:var(--muted)">เหยื่อ</div>
+        </div>
+      </div>
+      <div style="font-size:.8rem;color:var(--muted);margin-bottom:4px">คำต้องห้าม</div>
+      <div class="bust-word-display">"${bust.secretWord}"</div>
+    </div>
+    <div style="background:rgba(139,119,255,.08);border:1px solid rgba(139,119,255,.2);border-radius:14px;padding:14px;text-align:center;margin-top:auto">
+      <div style="font-size:1.4rem;margin-bottom:4px">⏳</div>
+      <div style="font-size:.88rem;color:var(--muted)">กำลังรอ <strong style="color:var(--text)">${target?.name||'เหยื่อ'}</strong> ตอบกลับ</div>
     </div>
   `;
 }
