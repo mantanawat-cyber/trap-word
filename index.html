@@ -425,7 +425,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
       <button class="btn btn-red" onclick="goCreate()">🏠 สร้างห้องใหม่</button>
       <button class="btn btn-ghost" onclick="goJoin()">🔑 เข้าร่วมด้วย Room Code</button>
     </div>
-    <div style="text-align:center;margin-top:20px;font-size:.72rem;color:var(--muted);letter-spacing:.04em">v1.4.2</div>
+    <div style="text-align:center;margin-top:20px;font-size:.72rem;color:var(--muted);letter-spacing:.04em">v1.4.3</div>
   </div>
 
   <!-- JOIN (enter code) -->
@@ -1051,7 +1051,9 @@ async function startGame() {
   if (roomSnap?.host !== myUid) return;
   const players = roomSnap.players || {};
   if (Object.keys(players).length < 2) { toast('ต้องการผู้เล่นอย่างน้อย 2 คน'); return; }
-  await roomRef.child('phase').set('trap-setup');
+  const updates = { phase: 'trap-setup', traps: null, bustState: null, voteState: null, voteResult: null };
+  Object.keys(players).forEach(uid => { updates[`players/${uid}/trapReady`] = false; });
+  await roomRef.update(updates);
 }
 
 // ── Handle phase changes ──────────────────────────────
@@ -1218,6 +1220,7 @@ function showTrapWait() {
 }
 
 function renderTrapWait() {
+  if (roomSnap?.phase !== 'trap-setup') return;
   const listEl = document.getElementById('trap-wait-list');
   if (!listEl || !roomSnap) return;
   const players  = roomSnap.players || {};
